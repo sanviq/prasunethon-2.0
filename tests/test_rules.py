@@ -109,6 +109,7 @@ def test_holding_a_loan_is_not_a_disqualification():
         age=34,
         occupation_category="street_vendor",
         documents=["aadhaar", "bank_account", "vending_certificate"],
+        vending_since_year=2019,
         has_loan_npa=False,
     )
     assert evaluate_scheme("pm_svanidhi", p).status is Status.ELIGIBLE
@@ -139,6 +140,7 @@ def test_ladder_actually_reaches_eligible():
         age=30,
         occupation_category="street_vendor",
         documents=["aadhaar", "bank_account"],
+        vending_since_year=2019,
         has_loan_npa=False,
     )
     path = build_path(evaluate_scheme("pm_svanidhi", p), p)
@@ -152,6 +154,7 @@ def test_ladder_headline_matches_the_pitch_shape():
         age=30,
         occupation_category="street_vendor",
         documents=["aadhaar", "bank_account"],
+        vending_since_year=2019,
         has_loan_npa=False,
     )
     headline = build_path(evaluate_scheme("pm_svanidhi", p), p).headline()
@@ -182,6 +185,7 @@ def test_eligible_schemes_rank_above_ineligible():
         occupation_category="street_vendor",
         monthly_income=9000,
         documents=["aadhaar", "bank_account", "vending_certificate"],
+        vending_since_year=2019,
         is_epfo_esic_member=False,
         is_income_tax_payer=False,
         has_loan_npa=False,
@@ -204,7 +208,7 @@ def test_missing_fields_prioritises_the_most_unblocking_question():
 def test_every_rule_carries_a_citation():
     for scheme in load_schemes()["schemes"]:
         for rule in scheme["rules"]:
-            assert rule["source_doc"] and rule["source_page"] and rule["source_quote"], (
+            assert rule["source_doc"] and rule["source_url"] and rule["source_quote"], (
                 f"{scheme['id']}/{rule['id']} has no citation and cannot be defended"
             )
 

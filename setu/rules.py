@@ -51,6 +51,8 @@ class Profile:
     is_epfo_esic_member: bool | None = None
     is_income_tax_payer: bool | None = None
     has_loan_npa: bool | None = None
+    vending_since_year: int | None = None
+    took_govt_credit_scheme_last_5y: bool | None = None
     language: str = "hi"
 
     def get(self, name: str) -> Any:
@@ -216,7 +218,7 @@ def evaluate_rule(rule: dict[str, Any], profile: Profile) -> RuleResult:
         field_name=rule["field"],
         citation={
             "doc": rule["source_doc"],
-            "page": rule["source_page"],
+            "url": rule["source_url"],
             "quote": rule["source_quote"],
         },
         remedy=rule.get("remedy"),

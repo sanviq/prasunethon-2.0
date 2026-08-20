@@ -133,8 +133,9 @@ tests/               18 tests, and the invariants they protect
 Add an entry to `data/schemes.json`. Every rule needs:
 
 - `field` / `op` / `value` — the predicate
-- `source_doc` / `source_page` / `source_quote` — the citation the "Why?" panel
-  shows. A rule you cannot cite is a rule you cannot defend.
+- `source_doc` / `source_url` / `source_quote` — the citation the "Why?" panel
+  shows. A rule you cannot cite is a rule you cannot defend, so the quote must
+  be checkable against the URL rather than paraphrased from memory.
 - `remedy` — how a failing rule gets fixed, or `null` if it cannot be. The
   Ladder can only offer what is written here. Age and income carry no remedy on
   purpose: you cannot act your way out of being 43.

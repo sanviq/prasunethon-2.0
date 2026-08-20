@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+data/voice_cache/
+data/chroma/
+.DS_Store

@@ -1,0 +1,687 @@
+{
+  "version": "1.0.0",
+  "_doc": [
+    "THIS FILE DECIDES WHO IS ELIGIBLE. The LLM never does.",
+    "",
+    "Every rule carries source_doc / source_page / source_quote -- that citation is what",
+    "the 'Why?' panel shows. A rule you cannot cite is a rule you cannot defend.",
+    "",
+    "Every rule that CAN be fixed by an action carries a `remedy`. The Ladder can only",
+    "offer what is written here, so a rule without a remedy is a dead end and a rule with",
+    "one is a rung. Age and income carry no remedy on purpose -- you cannot act your way",
+    "out of being 43.",
+    "",
+    "`depends_on` lists rule ids whose remedies must be completed FIRST. You cannot get a",
+    "UPI ID without a bank account, and you cannot open a Jan Dhan account without Aadhaar.",
+    "Without this the ladder sorts by cost and hands someone an order they cannot follow.",
+    "",
+    "Ops: eq ne gt gte lt lte in not_in contains contains_any not_contains is_true is_false",
+    "A rule whose field is absent from the profile evaluates to None -> NEED_INFO, never fail."
+  ],
+
+  "schemes": [
+    {
+      "id": "pm_svanidhi",
+      "name": "PM SVANidhi",
+      "full_name": "PM Street Vendor's AtmaNirbhar Nidhi",
+      "category": "credit",
+      "priority": 1,
+      "benefit_summary": "Collateral-free working capital loan in three tranches -- Rs 10,000, then Rs 20,000, then Rs 50,000 -- with a 7% annual interest subsidy and up to Rs 1,200 a year cashback for digital transactions.",
+      "benefit_amount_rupees": 10000,
+      "benefit_detail": {
+        "tranches": [
+          {"amount": 10000, "repayment_months": 12},
+          {"amount": 20000, "repayment_months": 18, "requires": "timely repayment of tranche 1"},
+          {"amount": 50000, "repayment_months": 36, "requires": "timely repayment of tranche 2"}
+        ],
+        "interest_subsidy_percent": 7,
+        "cashback_max_per_year": 1200,
+        "collateral_required": false
+      },
+      "rules": [
+        {
+          "id": "svanidhi_is_street_vendor",
+          "description": "Applicant must be a street vendor",
+          "field": "occupation_category",
+          "op": "eq",
+          "value": "street_vendor",
+          "gating": true,
+          "source_doc": "PM SVANidhi Scheme Guidelines",
+          "source_page": 2,
+          "source_quote": "The scheme is available to street vendors engaged in vending in urban areas.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "svanidhi_has_vending_proof",
+          "description": "Must hold a Certificate of Vending or a Letter of Recommendation from the Town Vending Committee",
+          "field": "documents",
+          "op": "contains_any",
+          "value": ["vending_certificate", "letter_of_recommendation"],
+          "gating": true,
+          "source_doc": "PM SVANidhi Scheme Guidelines",
+          "source_page": 4,
+          "source_quote": "Vendors identified in the survey and issued a Certificate of Vending / Identity Card are eligible. Vendors left out of the survey may obtain a Letter of Recommendation from the Urban Local Body or Town Vending Committee.",
+          "remedy": {
+            "action": "Request a Letter of Recommendation from your Town Vending Committee at the ULB office",
+            "cost_rupees": 0,
+            "days": 7,
+            "where": "Urban Local Body / Town Vending Committee office",
+            "grants": {"field": "documents", "value": "letter_of_recommendation"}
+          },
+          "depends_on": []
+        },
+        {
+          "id": "svanidhi_has_aadhaar",
+          "description": "Aadhaar is required for loan application and subsidy transfer",
+          "field": "documents",
+          "op": "contains",
+          "value": "aadhaar",
+          "gating": true,
+          "source_doc": "PM SVANidhi Scheme Guidelines",
+          "source_page": 6,
+          "source_quote": "Aadhaar is mandatory for availing the interest subsidy, which is credited directly to the borrower's account.",
+          "remedy": {
+            "action": "Enrol for Aadhaar at the nearest Aadhaar Seva Kendra",
+            "cost_rupees": 0,
+            "days": 30,
+            "where": "Aadhaar Seva Kendra / Common Service Centre",
+            "grants": {"field": "documents", "value": "aadhaar"}
+          },
+          "depends_on": []
+        },
+        {
+          "id": "svanidhi_has_bank_account",
+          "description": "A bank account is required to receive the loan",
+          "field": "documents",
+          "op": "contains_any",
+          "value": ["bank_account", "jan_dhan_account"],
+          "gating": true,
+          "source_doc": "PM SVANidhi Scheme Guidelines",
+          "source_page": 6,
+          "source_quote": "Loan proceeds are disbursed to the beneficiary's bank account.",
+          "remedy": {
+            "action": "Open a zero-balance Jan Dhan account using your Aadhaar",
+            "cost_rupees": 0,
+            "days": 3,
+            "where": "Any public sector bank branch or Bank Mitra",
+            "grants": {"field": "documents", "value": "jan_dhan_account"}
+          },
+          "depends_on": ["svanidhi_has_aadhaar"]
+        },
+        {
+          "id": "svanidhi_no_npa",
+          "description": "An existing loan written off as NPA disqualifies; merely holding a loan does not",
+          "field": "has_loan_npa",
+          "op": "is_false",
+          "gating": false,
+          "source_doc": "PM SVANidhi Loan Operations Guidelines",
+          "source_page": 11,
+          "source_quote": "Applicants whose earlier loans have been classified as non-performing assets are not eligible until the account is regularised.",
+          "remedy": null,
+          "depends_on": []
+        }
+      ]
+    },
+
+    {
+      "id": "pm_sym",
+      "name": "PM-SYM",
+      "full_name": "Pradhan Mantri Shram Yogi Maan-dhan",
+      "category": "pension",
+      "priority": 2,
+      "benefit_summary": "A guaranteed pension of Rs 3,000 a month after age 60. The government matches your contribution rupee for rupee.",
+      "benefit_amount_rupees": 36000,
+      "benefit_detail": {
+        "monthly_pension_after_60": 3000,
+        "government_matches_contribution": true
+      },
+      "rules": [
+        {
+          "id": "sym_age_band",
+          "description": "Entry age must be between 18 and 40",
+          "field": "age",
+          "op": "gte",
+          "value": 18,
+          "gating": true,
+          "source_doc": "PM-SYM Scheme Notification",
+          "source_page": 1,
+          "source_quote": "The entry age of the beneficiary shall be between 18 and 40 years.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "sym_age_max",
+          "description": "Entry age must not exceed 40",
+          "field": "age",
+          "op": "lte",
+          "value": 40,
+          "gating": true,
+          "source_doc": "PM-SYM Scheme Notification",
+          "source_page": 1,
+          "source_quote": "The entry age of the beneficiary shall be between 18 and 40 years.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "sym_income_ceiling",
+          "description": "Monthly income must not exceed Rs 15,000",
+          "field": "monthly_income",
+          "op": "lte",
+          "value": 15000,
+          "gating": true,
+          "source_doc": "PM-SYM Scheme Notification",
+          "source_page": 1,
+          "source_quote": "Monthly income of the unorganised worker shall be Rs 15,000 or less.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "sym_not_organised_sector",
+          "description": "Must not be a member of EPFO, ESIC or NPS",
+          "field": "is_epfo_esic_member",
+          "op": "is_false",
+          "gating": true,
+          "source_doc": "PM-SYM Scheme Notification",
+          "source_page": 2,
+          "source_quote": "The worker should not be covered under the New Pension Scheme, Employees' State Insurance Corporation scheme or Employees' Provident Fund Organisation scheme.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "sym_not_taxpayer",
+          "description": "Must not be an income tax payer",
+          "field": "is_income_tax_payer",
+          "op": "is_false",
+          "gating": true,
+          "source_doc": "PM-SYM Scheme Notification",
+          "source_page": 2,
+          "source_quote": "The worker should not be an income tax payer.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "sym_has_bank_account",
+          "description": "A savings bank account is required for auto-debit of contributions",
+          "field": "documents",
+          "op": "contains_any",
+          "value": ["bank_account", "jan_dhan_account"],
+          "gating": true,
+          "source_doc": "PM-SYM Scheme Notification",
+          "source_page": 3,
+          "source_quote": "The beneficiary should possess a savings bank account and an Aadhaar number.",
+          "remedy": {
+            "action": "Open a zero-balance Jan Dhan account using your Aadhaar",
+            "cost_rupees": 0,
+            "days": 3,
+            "where": "Any public sector bank branch or Bank Mitra",
+            "grants": {"field": "documents", "value": "jan_dhan_account"}
+          },
+          "depends_on": ["sym_has_aadhaar"]
+        },
+        {
+          "id": "sym_has_aadhaar",
+          "description": "Aadhaar is required for enrolment",
+          "field": "documents",
+          "op": "contains",
+          "value": "aadhaar",
+          "gating": true,
+          "source_doc": "PM-SYM Scheme Notification",
+          "source_page": 3,
+          "source_quote": "The beneficiary should possess a savings bank account and an Aadhaar number.",
+          "remedy": {
+            "action": "Enrol for Aadhaar at the nearest Aadhaar Seva Kendra",
+            "cost_rupees": 0,
+            "days": 30,
+            "where": "Aadhaar Seva Kendra / Common Service Centre",
+            "grants": {"field": "documents", "value": "aadhaar"}
+          },
+          "depends_on": []
+        }
+      ]
+    },
+
+    {
+      "id": "e_shram",
+      "name": "e-Shram",
+      "full_name": "e-Shram National Database of Unorganised Workers",
+      "category": "registration",
+      "priority": 1,
+      "benefit_summary": "Free registration giving you a Universal Account Number, Rs 2 lakh accidental death cover for the first year, and automatic consideration for future welfare schemes.",
+      "benefit_amount_rupees": 200000,
+      "benefit_detail": {
+        "accident_cover_rupees": 200000,
+        "cost_to_register": 0,
+        "gateway_scheme": true
+      },
+      "rules": [
+        {
+          "id": "eshram_age_min",
+          "description": "Must be at least 16",
+          "field": "age",
+          "op": "gte",
+          "value": 16,
+          "gating": true,
+          "source_doc": "e-Shram Registration Guidelines",
+          "source_page": 1,
+          "source_quote": "Any unorganised worker aged between 16 and 59 years may register on the e-Shram portal.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "eshram_age_max",
+          "description": "Must be 59 or younger",
+          "field": "age",
+          "op": "lte",
+          "value": 59,
+          "gating": true,
+          "source_doc": "e-Shram Registration Guidelines",
+          "source_page": 1,
+          "source_quote": "Any unorganised worker aged between 16 and 59 years may register on the e-Shram portal.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "eshram_not_organised_sector",
+          "description": "Must not be a member of EPFO or ESIC",
+          "field": "is_epfo_esic_member",
+          "op": "is_false",
+          "gating": true,
+          "source_doc": "e-Shram Registration Guidelines",
+          "source_page": 2,
+          "source_quote": "The worker should not be a member of EPFO or ESIC.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "eshram_has_aadhaar",
+          "description": "Aadhaar linked to a mobile number is required",
+          "field": "documents",
+          "op": "contains",
+          "value": "aadhaar",
+          "gating": true,
+          "source_doc": "e-Shram Registration Guidelines",
+          "source_page": 2,
+          "source_quote": "Registration requires an Aadhaar number seeded with a mobile number for OTP authentication.",
+          "remedy": {
+            "action": "Enrol for Aadhaar at the nearest Aadhaar Seva Kendra",
+            "cost_rupees": 0,
+            "days": 30,
+            "where": "Aadhaar Seva Kendra / Common Service Centre",
+            "grants": {"field": "documents", "value": "aadhaar"}
+          },
+          "depends_on": []
+        }
+      ]
+    },
+
+    {
+      "id": "pmjjby",
+      "name": "PMJJBY",
+      "full_name": "Pradhan Mantri Jeevan Jyoti Bima Yojana",
+      "category": "insurance",
+      "priority": 3,
+      "benefit_summary": "Rs 2 lakh life insurance cover for a premium of Rs 436 a year, auto-debited from your bank account.",
+      "benefit_amount_rupees": 200000,
+      "benefit_detail": {"annual_premium_rupees": 436, "cover_rupees": 200000},
+      "rules": [
+        {
+          "id": "pmjjby_age_min",
+          "description": "Must be at least 18",
+          "field": "age",
+          "op": "gte",
+          "value": 18,
+          "gating": true,
+          "source_doc": "PMJJBY Rules",
+          "source_page": 1,
+          "source_quote": "Available to savings bank account holders aged 18 to 50 years.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "pmjjby_age_max",
+          "description": "Entry age must not exceed 50",
+          "field": "age",
+          "op": "lte",
+          "value": 50,
+          "gating": true,
+          "source_doc": "PMJJBY Rules",
+          "source_page": 1,
+          "source_quote": "Available to savings bank account holders aged 18 to 50 years.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "pmjjby_has_bank_account",
+          "description": "A savings bank account with auto-debit consent is required",
+          "field": "documents",
+          "op": "contains_any",
+          "value": ["bank_account", "jan_dhan_account"],
+          "gating": true,
+          "source_doc": "PMJJBY Rules",
+          "source_page": 1,
+          "source_quote": "The scheme is offered to individual savings bank account holders who give consent to auto-debit of premium.",
+          "remedy": {
+            "action": "Open a zero-balance Jan Dhan account using your Aadhaar",
+            "cost_rupees": 0,
+            "days": 3,
+            "where": "Any public sector bank branch or Bank Mitra",
+            "grants": {"field": "documents", "value": "jan_dhan_account"}
+          },
+          "depends_on": ["pmjjby_has_aadhaar"]
+        },
+        {
+          "id": "pmjjby_has_aadhaar",
+          "description": "Aadhaar is the primary KYC for the bank account",
+          "field": "documents",
+          "op": "contains",
+          "value": "aadhaar",
+          "gating": false,
+          "source_doc": "PMJJBY Rules",
+          "source_page": 2,
+          "source_quote": "Aadhaar shall be the primary KYC for the bank account.",
+          "remedy": {
+            "action": "Enrol for Aadhaar at the nearest Aadhaar Seva Kendra",
+            "cost_rupees": 0,
+            "days": 30,
+            "where": "Aadhaar Seva Kendra / Common Service Centre",
+            "grants": {"field": "documents", "value": "aadhaar"}
+          },
+          "depends_on": []
+        }
+      ]
+    },
+
+    {
+      "id": "pmsby",
+      "name": "PMSBY",
+      "full_name": "Pradhan Mantri Suraksha Bima Yojana",
+      "category": "insurance",
+      "priority": 3,
+      "benefit_summary": "Rs 2 lakh accidental death cover, or Rs 1 lakh for partial disability, for a premium of Rs 20 a year.",
+      "benefit_amount_rupees": 200000,
+      "benefit_detail": {"annual_premium_rupees": 20, "cover_rupees": 200000, "partial_disability_rupees": 100000},
+      "rules": [
+        {
+          "id": "pmsby_age_min",
+          "description": "Must be at least 18",
+          "field": "age",
+          "op": "gte",
+          "value": 18,
+          "gating": true,
+          "source_doc": "PMSBY Rules",
+          "source_page": 1,
+          "source_quote": "Available to savings bank account holders aged 18 to 70 years.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "pmsby_age_max",
+          "description": "Must be 70 or younger",
+          "field": "age",
+          "op": "lte",
+          "value": 70,
+          "gating": true,
+          "source_doc": "PMSBY Rules",
+          "source_page": 1,
+          "source_quote": "Available to savings bank account holders aged 18 to 70 years.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "pmsby_has_bank_account",
+          "description": "A savings bank account with auto-debit consent is required",
+          "field": "documents",
+          "op": "contains_any",
+          "value": ["bank_account", "jan_dhan_account"],
+          "gating": true,
+          "source_doc": "PMSBY Rules",
+          "source_page": 1,
+          "source_quote": "The scheme is offered to individual savings bank account holders who give consent to auto-debit of premium.",
+          "remedy": {
+            "action": "Open a zero-balance Jan Dhan account using your Aadhaar",
+            "cost_rupees": 0,
+            "days": 3,
+            "where": "Any public sector bank branch or Bank Mitra",
+            "grants": {"field": "documents", "value": "jan_dhan_account"}
+          },
+          "depends_on": []
+        }
+      ]
+    },
+
+    {
+      "id": "pm_vishwakarma",
+      "name": "PM Vishwakarma",
+      "full_name": "Pradhan Mantri Vishwakarma Yojana",
+      "category": "credit",
+      "priority": 1,
+      "benefit_summary": "Rs 15,000 toolkit incentive, free skill training with a daily stipend, and collateral-free loans of Rs 1 lakh then Rs 2 lakh at 5% interest.",
+      "benefit_amount_rupees": 15000,
+      "benefit_detail": {
+        "toolkit_incentive_rupees": 15000,
+        "loan_tranches": [100000, 200000],
+        "interest_percent": 5,
+        "collateral_required": false
+      },
+      "rules": [
+        {
+          "id": "vishwakarma_is_artisan",
+          "description": "Must work in one of the 18 recognised traditional trades",
+          "field": "occupation_category",
+          "op": "in",
+          "value": ["artisan", "tailor", "carpenter", "blacksmith", "potter", "cobbler", "goldsmith", "barber", "washerman", "mason"],
+          "gating": true,
+          "source_doc": "PM Vishwakarma Scheme Guidelines",
+          "source_page": 3,
+          "source_quote": "The scheme covers artisans and craftspeople engaged in any of the eighteen listed trades, working with their hands and tools in the unorganised sector.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "vishwakarma_age_min",
+          "description": "Must be at least 18 on the date of registration",
+          "field": "age",
+          "op": "gte",
+          "value": 18,
+          "gating": true,
+          "source_doc": "PM Vishwakarma Scheme Guidelines",
+          "source_page": 3,
+          "source_quote": "The minimum age of the beneficiary shall be 18 years on the date of registration.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "vishwakarma_has_aadhaar",
+          "description": "Aadhaar-based biometric registration is required",
+          "field": "documents",
+          "op": "contains",
+          "value": "aadhaar",
+          "gating": true,
+          "source_doc": "PM Vishwakarma Scheme Guidelines",
+          "source_page": 5,
+          "source_quote": "Registration shall be done through Aadhaar-based biometric authentication at a Common Service Centre.",
+          "remedy": {
+            "action": "Enrol for Aadhaar at the nearest Aadhaar Seva Kendra",
+            "cost_rupees": 0,
+            "days": 30,
+            "where": "Aadhaar Seva Kendra / Common Service Centre",
+            "grants": {"field": "documents", "value": "aadhaar"}
+          },
+          "depends_on": []
+        },
+        {
+          "id": "vishwakarma_no_npa",
+          "description": "An existing loan written off as NPA disqualifies",
+          "field": "has_loan_npa",
+          "op": "is_false",
+          "gating": false,
+          "source_doc": "PM Vishwakarma Scheme Guidelines",
+          "source_page": 9,
+          "source_quote": "Beneficiaries with loans classified as non-performing assets shall not be eligible for credit support.",
+          "remedy": null,
+          "depends_on": []
+        }
+      ]
+    },
+
+    {
+      "id": "atal_pension",
+      "name": "Atal Pension Yojana",
+      "full_name": "Atal Pension Yojana",
+      "category": "pension",
+      "priority": 2,
+      "benefit_summary": "A guaranteed pension of Rs 1,000 to Rs 5,000 a month after age 60, depending on how much you contribute.",
+      "benefit_amount_rupees": 60000,
+      "benefit_detail": {"monthly_pension_range": [1000, 5000], "pension_starts_age": 60},
+      "rules": [
+        {
+          "id": "apy_age_min",
+          "description": "Entry age must be at least 18",
+          "field": "age",
+          "op": "gte",
+          "value": 18,
+          "gating": true,
+          "source_doc": "Atal Pension Yojana Scheme Details",
+          "source_page": 1,
+          "source_quote": "Any citizen of India aged between 18 and 40 years with a savings bank account may join.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "apy_age_max",
+          "description": "Entry age must not exceed 40",
+          "field": "age",
+          "op": "lte",
+          "value": 40,
+          "gating": true,
+          "source_doc": "Atal Pension Yojana Scheme Details",
+          "source_page": 1,
+          "source_quote": "Any citizen of India aged between 18 and 40 years with a savings bank account may join.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "apy_not_taxpayer",
+          "description": "Income tax payers have not been eligible to join since 1 October 2022",
+          "field": "is_income_tax_payer",
+          "op": "is_false",
+          "gating": true,
+          "source_doc": "Atal Pension Yojana Scheme Details",
+          "source_page": 2,
+          "source_quote": "With effect from 1 October 2022, any citizen who is or has been an income tax payer shall not be eligible to join the scheme.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "apy_has_bank_account",
+          "description": "A savings bank account is required for auto-debit of contributions",
+          "field": "documents",
+          "op": "contains_any",
+          "value": ["bank_account", "jan_dhan_account"],
+          "gating": true,
+          "source_doc": "Atal Pension Yojana Scheme Details",
+          "source_page": 1,
+          "source_quote": "The applicant must have a savings bank account with auto-debit facility for monthly contributions.",
+          "remedy": {
+            "action": "Open a zero-balance Jan Dhan account using your Aadhaar",
+            "cost_rupees": 0,
+            "days": 3,
+            "where": "Any public sector bank branch or Bank Mitra",
+            "grants": {"field": "documents", "value": "jan_dhan_account"}
+          },
+          "depends_on": []
+        }
+      ]
+    },
+
+    {
+      "id": "mudra_shishu",
+      "name": "MUDRA Shishu",
+      "full_name": "Pradhan Mantri MUDRA Yojana -- Shishu",
+      "category": "credit",
+      "priority": 2,
+      "benefit_summary": "Collateral-free business loan up to Rs 50,000 for a small non-farm enterprise.",
+      "benefit_amount_rupees": 50000,
+      "benefit_detail": {"max_loan_rupees": 50000, "collateral_required": false},
+      "rules": [
+        {
+          "id": "mudra_age_min",
+          "description": "Must be at least 18",
+          "field": "age",
+          "op": "gte",
+          "value": 18,
+          "gating": true,
+          "source_doc": "PMMY Operating Guidelines",
+          "source_page": 2,
+          "source_quote": "The applicant should be at least 18 years of age.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "mudra_turnover_ceiling",
+          "description": "Annual turnover must be within the micro-enterprise ceiling of Rs 5 lakh for Shishu",
+          "field": "annual_turnover",
+          "op": "lte",
+          "value": 500000,
+          "gating": false,
+          "source_doc": "PMMY Operating Guidelines",
+          "source_page": 4,
+          "source_quote": "Shishu covers loans up to Rs 50,000 extended to micro enterprises at the earliest stage of business.",
+          "remedy": null,
+          "depends_on": []
+        },
+        {
+          "id": "mudra_has_bank_account",
+          "description": "A bank account is required for disbursal",
+          "field": "documents",
+          "op": "contains_any",
+          "value": ["bank_account", "jan_dhan_account"],
+          "gating": true,
+          "source_doc": "PMMY Operating Guidelines",
+          "source_page": 6,
+          "source_quote": "Loan amounts are credited to the borrower's bank account.",
+          "remedy": {
+            "action": "Open a zero-balance Jan Dhan account using your Aadhaar",
+            "cost_rupees": 0,
+            "days": 3,
+            "where": "Any public sector bank branch or Bank Mitra",
+            "grants": {"field": "documents", "value": "jan_dhan_account"}
+          },
+          "depends_on": ["mudra_has_aadhaar"]
+        },
+        {
+          "id": "mudra_has_aadhaar",
+          "description": "Aadhaar is required as KYC",
+          "field": "documents",
+          "op": "contains",
+          "value": "aadhaar",
+          "gating": false,
+          "source_doc": "PMMY Operating Guidelines",
+          "source_page": 6,
+          "source_quote": "Aadhaar is accepted as officially valid KYC documentation for the loan application.",
+          "remedy": {
+            "action": "Enrol for Aadhaar at the nearest Aadhaar Seva Kendra",
+            "cost_rupees": 0,
+            "days": 30,
+            "where": "Aadhaar Seva Kendra / Common Service Centre",
+            "grants": {"field": "documents", "value": "aadhaar"}
+          },
+          "depends_on": []
+        },
+        {
+          "id": "mudra_no_npa",
+          "description": "An existing loan written off as NPA disqualifies",
+          "field": "has_loan_npa",
+          "op": "is_false",
+          "gating": false,
+          "source_doc": "PMMY Operating Guidelines",
+          "source_page": 8,
+          "source_quote": "Borrowers classified as non-performing assets with any lending institution are not eligible.",
+          "remedy": null,
+          "depends_on": []
+        }
+      ]
+    }
+  ]
+}

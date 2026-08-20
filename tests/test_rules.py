@@ -63,6 +63,42 @@ def test_turnover_unknown_when_no_income_stated():
     assert Profile().get("annual_turnover") is None
 
 
+def test_daily_earner_clears_a_monthly_income_ceiling():
+    """
+    Regression: PM-SYM's ceiling is written monthly, but nobody in this
+    population says "13,000 a month" -- they say "500 a day". Pointing the rule
+    at raw monthly_income silently dropped PM-SYM for every daily earner.
+    """
+    p = Profile(
+        age=30,
+        daily_income=500,  # -> 13,000/month, inside the 15,000 ceiling
+        documents=["aadhaar", "bank_account"],
+        is_epfo_esic_member=False,
+        is_income_tax_payer=False,
+    )
+    assert evaluate_scheme("pm_sym", p).status is Status.ELIGIBLE
+
+
+def test_ladder_surfaces_schemes_blocked_behind_another_blocker():
+    """
+    Regression: a scheme whose income rule was unknown got masked by a failing
+    bank-account rule, so it never showed as NEED_INFO, was never asked about,
+    and the Ladder dropped it at verification. The caller never heard about a
+    Rs 36,000 pension she qualified for.
+    """
+    p = Profile(
+        age=30,
+        occupation_category="street_vendor",
+        daily_income=500,
+        documents=["aadhaar"],
+        is_epfo_esic_member=False,
+        is_income_tax_payer=False,
+        has_loan_npa=False,
+    )
+    reached = {path.scheme_id for path in best_paths(p, evaluate_all(p))}
+    assert "pm_sym" in reached
+
+
 # --------------------------------------------------------------------------
 # NPA vs merely holding a loan
 # --------------------------------------------------------------------------

@@ -74,8 +74,25 @@ def _annual_turnover(p: Profile) -> float | None:
     return None
 
 
+def _monthly_income_est(p: Profile) -> float | None:
+    """
+    Monthly income from whatever the person actually said.
+
+    Scheme income ceilings are written monthly, but almost nobody in this
+    population states a monthly figure -- they say "500 a day". Pointing the
+    ceiling rules at the raw monthly_income field left them permanently unknown
+    for exactly the callers the scheme is designed for.
+    """
+    if p.monthly_income is not None:
+        return p.monthly_income
+    if p.daily_income is not None:
+        return p.daily_income * WORKING_DAYS_PER_MONTH
+    return None
+
+
 DERIVED_FIELDS: dict[str, Callable[[Profile], Any]] = {
     "annual_turnover": _annual_turnover,
+    "monthly_income_est": _monthly_income_est,
 }
 
 
@@ -254,7 +271,11 @@ def missing_fields(profile: Profile) -> list[str]:
     """
     counts: dict[str, int] = {}
     for decision in evaluate_all(profile):
-        if decision.status is not Status.NEED_INFO:
+        # NOT_ELIGIBLE decisions count too. A scheme blocked by one fixable rule
+        # may still hide an unknown fact behind it, and if we only looked at
+        # NEED_INFO we would never ask -- the Ladder would then quietly drop that
+        # scheme at verification and the caller would never hear about it.
+        if decision.status is Status.ELIGIBLE:
             continue
         for result in decision.unknown:
             if result.gating:

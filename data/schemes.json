@@ -166,7 +166,7 @@
         {
           "id": "sym_income_ceiling",
           "description": "Monthly income must not exceed Rs 15,000",
-          "field": "monthly_income",
+          "field": "monthly_income_est",
           "op": "lte",
           "value": 15000,
           "gating": true,

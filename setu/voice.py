@@ -9,10 +9,23 @@ re-synthesising a sentence we already have is a needless risk on stage. Set
 SETU_VOICE_MODE=offline to refuse any network call and serve cache only -- run
 the live demo that way.
 
-Whisper model size defaults to `base` rather than `small`. On a laptop that is
-also running a browser, a tunnel, and a screen recorder, the accuracy gain from
-`small` is not worth the memory pressure. Override with SETU_WHISPER_SIZE if
-the machine has room.
+Whisper size defaults to `medium`, chosen by listening to the output on the
+same clip rather than guessing at the speed/accuracy trade:
+
+    small  beam=1   2.6s   "मेरी उम्रती साल है"    <- the age is unrecoverable
+    small  beam=5   3.1s   "मेरी उम्रती साल है"    <- beam search does not save it
+    medium beam=1   9.4s   "मेरी अम्र 30 साल है"   <- gets it, as a digit
+
+Small never recovers the number at any beam width, and a garbled age means Setu
+asks "how old are you?" immediately after she said it -- which reads as broken
+to everyone watching and costs a whole extra turn, longer than the seconds
+saved. So: accuracy, and buy the time back from cpu_threads instead.
+
+ASR is ~90% of turn latency; everything downstream is ~1.3s of extraction and
+milliseconds of rules. If a turn feels slow, this is the only knob that matters.
+
+Drop to SETU_WHISPER_SIZE=small if the machine struggles; the conversation
+layer handles a missed fact gracefully, it just costs a turn.
 
 Deliberately not Bhashini: it needs institutional approval we do not have. The
 adapter shape below means adding it later is one function, not a rewrite.
@@ -30,7 +43,7 @@ from pathlib import Path
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "voice_cache"
 VOICE_MODE = os.getenv("SETU_VOICE_MODE", "auto")  # auto | offline
-WHISPER_SIZE = os.getenv("SETU_WHISPER_SIZE", "base")
+WHISPER_SIZE = os.getenv("SETU_WHISPER_SIZE", "medium")
 
 # edge-tts neural voices, one per supported language. Male by default: the demo
 # persona is a man, and a mismatched voice is a small thing that quietly
@@ -75,7 +88,25 @@ def _whisper():
     except ImportError as exc:  # pragma: no cover - depends on install
         raise VoiceError("faster-whisper is not installed") from exc
 
-    return WhisperModel(WHISPER_SIZE, device="cpu", compute_type="int8")
+    # cpu_threads matters more than anything else here: the default left
+    # medium at 16.8s on this machine and pinning threads brought it to 9.4s
+    # for the same audio and the same output. Nearly half the turn latency was
+    # a default nobody had looked at.
+    threads = int(os.getenv("SETU_WHISPER_THREADS", "0")) or min(8, os.cpu_count() or 4)
+    return WhisperModel(
+        WHISPER_SIZE, device="cpu", compute_type="int8", cpu_threads=threads
+    )
+
+
+def preload() -> None:
+    """
+    Load the model before the first caller needs it.
+
+    Lazily loading costs the FIRST request ~25 seconds, and on stage the first
+    request is the demo. Called from the API's startup hook so the wait happens
+    while uvicorn boots, where nobody is watching.
+    """
+    _whisper()
 
 
 def transcribe(audio_path: str | Path, language: str | None = None) -> tuple[str, str]:

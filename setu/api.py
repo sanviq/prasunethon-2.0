@@ -14,6 +14,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import uuid
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -26,7 +27,28 @@ from . import llm, voice
 from .ladder import best_paths, group_by_first_step
 from .rules import Profile, Status, evaluate_all, load_schemes, missing_fields
 
-app = FastAPI(title="Setu", version="1.1.0")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """
+    Pay the Whisper load during boot, not during the demo.
+
+    Loading lazily costs the FIRST request about 25 seconds, and on stage the
+    first request IS the demo.
+
+    Best effort on purpose: a machine without the model downloaded, or without
+    faster-whisper installed at all, should still serve /ask/text and the
+    console rather than refusing to start.
+    """
+    try:
+        voice.preload()
+        print(f"[setu] whisper '{voice.WHISPER_SIZE}' ready")
+    except Exception as exc:  # noqa: BLE001 - never block startup on this
+        print(f"[setu] whisper not preloaded ({type(exc).__name__}: {exc})")
+        print("[setu] /ask will be slow on first use; /ask/text is unaffected")
+    yield
+
+
+app = FastAPI(title="Setu", version="1.2.0", lifespan=lifespan)
 
 # The PWA is served from a tunnel on a different origin than the API during
 # development, and getUserMedia refuses plain http, so the browser origin is

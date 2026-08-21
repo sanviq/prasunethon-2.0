@@ -204,15 +204,6 @@ that endpoint answers the question in one curl.
 
 ---
 
-## Provenance
-
-Setu began as an idea at IBM HackVerse 2.0 with
-[Palak Patnaik](https://github.com/pxlkele), who consented to the concept being
-carried forward here. **This repository is a fresh implementation written
-during the Prasunethon 2.0 build period** — every commit is dated within the
-event, and no code is carried over from the earlier project. The scheme
-catalogue, rule engine, and Ladder in this repo were rewritten from scratch.
-
 ## Designed, not yet built
 
 These are specified but **not implemented in this repository**. They are listed

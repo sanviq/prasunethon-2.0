@@ -1,0 +1,1141 @@
+{
+  "personas": [
+    {
+      "id": "vendor_full",
+      "note": "30, vending since 2015, all papers",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account",
+          "vending_certificate"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "street_vendor",
+        "daily_income": 500,
+        "vending_since_year": 2015
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_svanidhi",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "vendor_no_vending_proof",
+      "note": "no CoV or LoR -- SVANidhi blocked, rest fine",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "street_vendor",
+        "daily_income": 500,
+        "vending_since_year": 2015
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "vendor_started_2023",
+      "note": "started after the 24 Mar 2020 cutoff",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account",
+          "vending_certificate"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "street_vendor",
+        "daily_income": 500,
+        "vending_since_year": 2023
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "vendor_no_bank",
+      "note": "aadhaar only -- every bank-gated scheme blocked",
+      "profile": {
+        "documents": [
+          "aadhaar"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "street_vendor",
+        "daily_income": 500,
+        "vending_since_year": 2015
+      },
+      "expect_eligible": [
+        "e_shram"
+      ]
+    },
+    {
+      "id": "vendor_no_aadhaar",
+      "note": "bank but no aadhaar; APY has no aadhaar rule",
+      "profile": {
+        "documents": [
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "street_vendor",
+        "daily_income": 500,
+        "vending_since_year": 2015
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "mudra_shishu",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "vendor_lor_not_cov",
+      "note": "LoR satisfies the vending proof rule",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account",
+          "letter_of_recommendation"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "street_vendor",
+        "daily_income": 500,
+        "vending_since_year": 2015
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_svanidhi",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "vendor_jan_dhan",
+      "note": "jan dhan counts as a bank account",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "jan_dhan_account",
+          "vending_certificate"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "street_vendor",
+        "daily_income": 500,
+        "vending_since_year": 2015
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_svanidhi",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "vendor_npa",
+      "note": "NPA is non-gating, so eligibility is unchanged",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account",
+          "vending_certificate"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": true,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "street_vendor",
+        "daily_income": 500,
+        "vending_since_year": 2015
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_svanidhi",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "age_17",
+      "note": "below every adult scheme; e-Shram opens at 16",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 17,
+        "occupation_category": "other",
+        "daily_income": 200
+      },
+      "expect_eligible": [
+        "e_shram"
+      ]
+    },
+    {
+      "id": "age_18",
+      "note": "lower boundary, inclusive everywhere",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 18,
+        "occupation_category": "other",
+        "daily_income": 300
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "age_40",
+      "note": "PM-SYM and APY upper boundary, inclusive",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 40,
+        "occupation_category": "other",
+        "daily_income": 300
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "age_41",
+      "note": "just past the pension entry window",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 41,
+        "occupation_category": "other",
+        "daily_income": 300
+      },
+      "expect_eligible": [
+        "e_shram",
+        "mudra_shishu",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "age_50",
+      "note": "PMJJBY upper boundary, inclusive",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 50,
+        "occupation_category": "other",
+        "daily_income": 300
+      },
+      "expect_eligible": [
+        "e_shram",
+        "mudra_shishu",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "age_51",
+      "note": "past PMJJBY",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 51,
+        "occupation_category": "other",
+        "daily_income": 300
+      },
+      "expect_eligible": [
+        "e_shram",
+        "mudra_shishu",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "age_59",
+      "note": "e-Shram upper boundary, inclusive",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 59,
+        "occupation_category": "other",
+        "daily_income": 300
+      },
+      "expect_eligible": [
+        "e_shram",
+        "mudra_shishu",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "age_60",
+      "note": "past e-Shram",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 60,
+        "occupation_category": "other",
+        "daily_income": 300
+      },
+      "expect_eligible": [
+        "mudra_shishu",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "age_70",
+      "note": "PMSBY upper boundary, inclusive",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 70,
+        "occupation_category": "other",
+        "daily_income": 300
+      },
+      "expect_eligible": [
+        "mudra_shishu",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "age_71",
+      "note": "past every insurance scheme",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 71,
+        "occupation_category": "other",
+        "daily_income": 300
+      },
+      "expect_eligible": [
+        "mudra_shishu"
+      ]
+    },
+    {
+      "id": "income_daily_at_ceiling",
+      "note": "576/day -> 14,976/month, just inside PM-SYM",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "other",
+        "daily_income": 576
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "income_daily_over_ceiling",
+      "note": "600/day -> 15,600/month, just outside PM-SYM",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "other",
+        "daily_income": 600
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "income_monthly_at_ceiling",
+      "note": "exactly 15,000 stated monthly, inclusive",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "other",
+        "monthly_income": 15000
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "income_monthly_over_ceiling",
+      "note": "15,001 monthly",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "other",
+        "monthly_income": 15001
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "income_high_earner",
+      "note": "60,000/month, taxpayer",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": true,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "other",
+        "monthly_income": 60000
+      },
+      "expect_eligible": [
+        "mudra_shishu",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "epfo_member",
+      "note": "formal-sector worker",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": true,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "other",
+        "daily_income": 400
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "mudra_shishu",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "taxpayer",
+      "note": "excluded from PM-SYM, e-Shram and APY",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": true,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "other",
+        "daily_income": 400
+      },
+      "expect_eligible": [
+        "mudra_shishu",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "epfo_and_taxpayer",
+      "note": "both exclusions at once",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": true,
+        "is_income_tax_payer": true,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "other",
+        "monthly_income": 40000
+      },
+      "expect_eligible": [
+        "mudra_shishu",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "no_documents_at_all",
+      "note": "holds a voter id and nothing that gates a scheme",
+      "profile": {
+        "documents": [
+          "voter_id"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "other",
+        "daily_income": 300
+      },
+      "expect_eligible": []
+    },
+    {
+      "id": "tailor_clean",
+      "note": "listed trade, no prior govt credit",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "tailor",
+        "daily_income": 400
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pm_vishwakarma",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "tailor_took_svanidhi",
+      "note": "prior SVANidhi loan closes the Vishwakarma door",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": true,
+        "age": 30,
+        "occupation_category": "tailor",
+        "daily_income": 400
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "potter_no_bank",
+      "note": "trade qualifies, no bank account",
+      "profile": {
+        "documents": [
+          "aadhaar"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 35,
+        "occupation_category": "potter",
+        "daily_income": 350
+      },
+      "expect_eligible": [
+        "e_shram",
+        "pm_vishwakarma"
+      ]
+    },
+    {
+      "id": "barber_65",
+      "note": "past the pension and e-Shram windows",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 65,
+        "occupation_category": "barber",
+        "daily_income": 400
+      },
+      "expect_eligible": [
+        "mudra_shishu",
+        "pm_vishwakarma",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "mason_18",
+      "note": "youngest eligible artisan",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 18,
+        "occupation_category": "mason",
+        "daily_income": 450
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pm_vishwakarma",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "driver_not_a_trade",
+      "note": "auto driver is not one of the 18 trades",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "driver",
+        "daily_income": 500
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "farmer_not_a_trade",
+      "note": "farming is outside the Vishwakarma list",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "farmer",
+        "daily_income": 300
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "domestic_worker",
+      "note": "not a listed trade, otherwise fully eligible",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 32,
+        "occupation_category": "domestic_worker",
+        "daily_income": 250,
+        "gender": "female"
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "construction_worker",
+      "note": "not a listed trade",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 28,
+        "occupation_category": "construction",
+        "daily_income": 450
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "cobbler_no_aadhaar",
+      "note": "trade qualifies but Vishwakarma needs aadhaar",
+      "profile": {
+        "documents": [
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 45,
+        "occupation_category": "cobbler",
+        "daily_income": 300
+      },
+      "expect_eligible": [
+        "mudra_shishu",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "vendor_41_full_papers",
+      "note": "aged out of pensions, still a SVANidhi case",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account",
+          "vending_certificate"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 41,
+        "occupation_category": "street_vendor",
+        "daily_income": 500,
+        "vending_since_year": 2018
+      },
+      "expect_eligible": [
+        "e_shram",
+        "mudra_shishu",
+        "pm_svanidhi",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "vendor_60_full_papers",
+      "note": "past e-Shram, SVANidhi has no upper age",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account",
+          "vending_certificate"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 60,
+        "occupation_category": "street_vendor",
+        "daily_income": 500,
+        "vending_since_year": 2018
+      },
+      "expect_eligible": [
+        "mudra_shishu",
+        "pm_svanidhi",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "goldsmith_taxpayer",
+      "note": "trade qualifies, taxpayer exclusions bite",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": true,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 38,
+        "occupation_category": "goldsmith",
+        "monthly_income": 45000
+      },
+      "expect_eligible": [
+        "mudra_shishu",
+        "pm_vishwakarma",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "washerman_epfo",
+      "note": "formal employment excludes PM-SYM and e-Shram",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": true,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 30,
+        "occupation_category": "washerman",
+        "monthly_income": 14000
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "mudra_shishu",
+        "pm_vishwakarma",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "blacksmith_everything",
+      "note": "every scheme he can possibly hold",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account",
+          "pan",
+          "ration_card"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 25,
+        "occupation_category": "blacksmith",
+        "daily_income": 400
+      },
+      "expect_eligible": [
+        "atal_pension",
+        "e_shram",
+        "mudra_shishu",
+        "pm_sym",
+        "pm_vishwakarma",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "carpenter_59_boundary",
+      "note": "last year of e-Shram eligibility",
+      "profile": {
+        "documents": [
+          "aadhaar",
+          "bank_account"
+        ],
+        "is_epfo_esic_member": false,
+        "is_income_tax_payer": false,
+        "has_loan_npa": false,
+        "took_govt_credit_scheme_last_5y": false,
+        "age": 59,
+        "occupation_category": "carpenter",
+        "daily_income": 500
+      },
+      "expect_eligible": [
+        "e_shram",
+        "mudra_shishu",
+        "pm_vishwakarma",
+        "pmsby"
+      ]
+    }
+  ],
+  "partial": [
+    {
+      "id": "said_nothing",
+      "note": "opened the app and tapped the mic",
+      "profile": {},
+      "may_reject": []
+    },
+    {
+      "id": "only_occupation",
+      "note": "'main sabzi bechta hoon' -- not a Vishwakarma trade",
+      "profile": {
+        "occupation_category": "street_vendor",
+        "documents": []
+      },
+      "may_reject": [
+        "pm_vishwakarma"
+      ]
+    },
+    {
+      "id": "only_age",
+      "note": "'main tees saal ka hoon'",
+      "profile": {
+        "age": 30,
+        "documents": []
+      },
+      "may_reject": []
+    },
+    {
+      "id": "occupation_and_income",
+      "note": "'sabzi bechta hoon, roz paanch sau'",
+      "profile": {
+        "occupation_category": "street_vendor",
+        "daily_income": 500,
+        "documents": []
+      },
+      "may_reject": [
+        "pm_vishwakarma"
+      ]
+    },
+    {
+      "id": "age_rules_out_pensions",
+      "note": "72 -- age legitimately closes several doors",
+      "profile": {
+        "age": 72,
+        "documents": []
+      },
+      "may_reject": [
+        "atal_pension",
+        "e_shram",
+        "pm_sym",
+        "pmjjby",
+        "pmsby"
+      ]
+    },
+    {
+      "id": "high_income_stated",
+      "note": "40,000/month rules out the PM-SYM ceiling",
+      "profile": {
+        "monthly_income": 40000,
+        "documents": []
+      },
+      "may_reject": [
+        "pm_sym"
+      ]
+    },
+    {
+      "id": "taxpayer_stated",
+      "note": "being a taxpayer is a stated disqualification",
+      "profile": {
+        "is_income_tax_payer": true,
+        "documents": []
+      },
+      "may_reject": [
+        "atal_pension",
+        "e_shram",
+        "pm_sym"
+      ]
+    },
+    {
+      "id": "vendor_mid_conversation",
+      "note": "trade, age and aadhaar known; paperwork not yet asked",
+      "profile": {
+        "age": 30,
+        "occupation_category": "street_vendor",
+        "documents": [
+          "aadhaar"
+        ]
+      },
+      "may_reject": [
+        "pm_vishwakarma"
+      ]
+    },
+    {
+      "id": "artisan_partial",
+      "note": "tailor, 35, no paperwork discussed -- not a street vendor",
+      "profile": {
+        "age": 35,
+        "occupation_category": "tailor",
+        "documents": []
+      },
+      "may_reject": [
+        "pm_svanidhi"
+      ]
+    },
+    {
+      "id": "income_only_daily",
+      "note": "'roz teen sau' and nothing else",
+      "profile": {
+        "daily_income": 300,
+        "documents": []
+      },
+      "may_reject": []
+    }
+  ]
+}

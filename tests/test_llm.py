@@ -68,6 +68,28 @@ def test_documents_merge_without_duplicates(stub):
     assert p.documents == ["aadhaar", "bank_account"]
 
 
+def test_denials_are_recorded_not_dropped(stub):
+    """
+    "I have no bank account" is a fact. Recording it is what lets Setu route her
+    to opening one; dropping it means Setu can only say "I don't know" forever.
+    """
+    stub({"documents": ["aadhaar"], "documents_denied": ["bank_account"]})
+    p = llm.extract_profile("aadhaar hai, bank account nahi hai", "hi")
+
+    assert p.documents == ["aadhaar"]
+    assert p.documents_denied == ["bank_account"]
+
+
+def test_acquiring_a_document_retracts_the_denial(stub):
+    """Turn one: no bank account. Turn three: opened one. Turn one must yield."""
+    known = Profile(documents=["aadhaar"], documents_denied=["bank_account"])
+    stub({"documents": ["bank_account"], "documents_denied": []})
+
+    p = llm.extract_profile("bank account khul gaya", "hi", base=known)
+    assert "bank_account" in p.documents
+    assert p.documents_denied == []
+
+
 def test_extraction_runs_at_temperature_zero(stub):
     """A creative rephrasing of someone's income is a bug, not a flourish."""
     calls = stub({"documents": []})
@@ -98,6 +120,7 @@ def _vendor() -> Profile:
         occupation_category="street_vendor",
         daily_income=500,
         documents=["aadhaar"],
+        documents_denied=["bank_account", "jan_dhan_account"],
         vending_since_year=2019,
         is_epfo_esic_member=False,
         is_income_tax_payer=False,

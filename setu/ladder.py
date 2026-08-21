@@ -83,6 +83,11 @@ def apply_remedy(profile: Profile, rule: dict[str, Any]) -> Profile:
     if name == "documents":
         if value not in updated.documents:
             updated.documents = [*updated.documents, value]
+        # Completing the remedy is what makes the earlier "no, I don't have one"
+        # obsolete. Leaving it in documents_denied would keep the rule failing
+        # after the very step that fixes it, and verify_path would reject a
+        # ladder that actually works.
+        updated.documents_denied = [d for d in updated.documents_denied if d != value]
     else:
         setattr(updated, name, value)
 

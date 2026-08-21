@@ -91,6 +91,7 @@ def test_ladder_surfaces_schemes_blocked_behind_another_blocker():
         occupation_category="street_vendor",
         daily_income=500,
         documents=["aadhaar"],
+        documents_denied=["bank_account", "jan_dhan_account"],
         is_epfo_esic_member=False,
         is_income_tax_payer=False,
         has_loan_npa=False,
@@ -127,7 +128,12 @@ def test_npa_blocks_credit_schemes():
 
 def test_ladder_orders_aadhaar_before_bank_account():
     """You cannot open a Jan Dhan account without Aadhaar, however cheap it is."""
-    p = Profile(age=30, occupation_category="street_vendor", documents=["vending_certificate"])
+    p = Profile(
+        age=30,
+        occupation_category="street_vendor",
+        documents=["vending_certificate"],
+        documents_denied=["aadhaar", "bank_account", "jan_dhan_account"],
+    )
     path = build_path(evaluate_scheme("pm_svanidhi", p), p)
 
     ids = [r.rule_id for r in path.rungs]
@@ -140,6 +146,7 @@ def test_ladder_actually_reaches_eligible():
         age=30,
         occupation_category="street_vendor",
         documents=["aadhaar", "bank_account"],
+        documents_denied=["vending_certificate", "letter_of_recommendation"],
         vending_since_year=2019,
         has_loan_npa=False,
     )
@@ -154,6 +161,7 @@ def test_ladder_headline_matches_the_pitch_shape():
         age=30,
         occupation_category="street_vendor",
         documents=["aadhaar", "bank_account"],
+        documents_denied=["vending_certificate", "letter_of_recommendation"],
         vending_since_year=2019,
         has_loan_npa=False,
     )
@@ -170,7 +178,14 @@ def test_age_failure_is_a_dead_end_not_a_rung():
 
 
 def test_best_paths_are_all_verified():
-    p = Profile(age=28, occupation_category="street_vendor", documents=[], has_loan_npa=False)
+    p = Profile(
+        age=28,
+        occupation_category="street_vendor",
+        documents=[],
+        documents_denied=["aadhaar", "bank_account", "jan_dhan_account",
+                          "vending_certificate", "letter_of_recommendation"],
+        has_loan_npa=False,
+    )
     for path in best_paths(p, evaluate_all(p)):
         assert verify_path(path, p)
 
@@ -233,3 +248,49 @@ def test_remedies_grant_something_the_rule_checks():
                 f"{scheme['id']}/{rule['id']} remedy grants {grants['field']} "
                 f"but the rule checks {rule['field']}"
             )
+
+
+# --------------------------------------------------------------------------
+# Documents: held, denied, and simply unasked
+# --------------------------------------------------------------------------
+
+def test_mentioning_one_document_is_not_a_claim_about_the_others():
+    """
+    Regression: a caller who mentions her Aadhaar has a non-empty documents
+    list, so a naive `"bank_account" in documents` returned False and Setu began
+    hard-rejecting every bank-gated scheme -- on the strength of a question
+    nobody had asked her.
+    """
+    p = Profile(age=30, documents=["aadhaar"])
+    for scheme_id in ("pmjjby", "pmsby", "atal_pension", "mudra_shishu"):
+        assert evaluate_scheme(scheme_id, p).status is not Status.NOT_ELIGIBLE, (
+            f"{scheme_id} rejected her over a document she was never asked about"
+        )
+
+
+def test_an_explicit_denial_does_fail_the_rule():
+    """Being asked and saying no is a fact. It has to be usable."""
+    p = Profile(age=30, documents=["aadhaar"], documents_denied=["bank_account", "jan_dhan_account"])
+    assert evaluate_scheme("pmjjby", p).status is Status.NOT_ELIGIBLE
+
+
+def test_contains_any_needs_every_alternative_denied_to_fail():
+    """Denying only one of two acceptable documents leaves the answer open."""
+    p = Profile(age=30, documents=[], documents_denied=["bank_account"])
+    assert evaluate_scheme("pmsby", p).status is Status.NEED_INFO
+
+
+def test_completing_a_remedy_retracts_the_denial():
+    """
+    Otherwise the rule keeps failing after the very step that fixes it, and
+    verify_path rejects a ladder that actually works.
+    """
+    from setu.ladder import apply_remedy
+    from setu.rules import get_rule
+
+    p = Profile(age=30, documents=["aadhaar"], documents_denied=["bank_account", "jan_dhan_account"])
+    after = apply_remedy(p, get_rule("pmjjby", "pmjjby_has_bank_account"))
+
+    assert "jan_dhan_account" in after.documents
+    assert "jan_dhan_account" not in after.documents_denied
+    assert evaluate_scheme("pmjjby", after).status is Status.ELIGIBLE

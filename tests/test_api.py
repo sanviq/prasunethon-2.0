@@ -64,6 +64,7 @@ def test_text_ask_returns_cards_and_a_ladder(client, monkeypatch):
         occupation_category="street_vendor",
         daily_income=500,
         documents=["aadhaar"],
+        documents_denied=["bank_account", "jan_dhan_account"],
         vending_since_year=2019,
         is_epfo_esic_member=False,
         is_income_tax_payer=False,

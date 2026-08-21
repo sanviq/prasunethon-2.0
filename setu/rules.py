@@ -48,6 +48,9 @@ class Profile:
     daily_income: float | None = None
     state: str | None = None
     documents: list[str] = field(default_factory=list)
+    # Documents she has explicitly told us she does NOT hold. Distinct from
+    # "not in documents", which only ever means we have not asked.
+    documents_denied: list[str] = field(default_factory=list)
     is_epfo_esic_member: bool | None = None
     is_income_tax_payer: bool | None = None
     has_loan_npa: bool | None = None
@@ -137,15 +140,45 @@ def _cmp(op: str, actual: Any, expected: Any) -> bool | None:
     raise ValueError(f"unknown operator: {op}")
 
 
-def _is_empty_list_field(rule: dict[str, Any], actual: Any) -> bool:
-    """
-    An empty documents list means "we have not asked yet", not "she has nothing".
+DOCUMENT_OPS = {"contains", "contains_any", "not_contains"}
 
-    Without this every list-shaped rule fails instantly for a caller who has not
-    yet been asked about paperwork, and the whole conversation opens with a
-    rejection.
+
+def _evaluate_document_rule(rule: dict[str, Any], profile: Profile) -> bool | None:
     """
-    return rule["op"] in {"contains", "contains_any", "not_contains"} and actual == []
+    Document rules are three-valued against two lists, not one.
+
+    `documents` is what she has told us she holds. `documents_denied` is what she
+    has told us she does NOT hold. Anything in neither list is simply unasked.
+
+    The subtle version of this bug is worse than the empty-list version: a caller
+    who mentions her Aadhaar has a non-empty documents list, so a naive
+    `"bank_account" in documents` returns False and Setu starts hard-rejecting
+    every bank-gated scheme -- on the strength of a question nobody asked her.
+    Mentioning one document is not a claim about all the others.
+
+    This is why the Ladder cannot route until we have asked. That is correct:
+    you cannot tell someone how to fix a gap you have not established exists.
+    """
+    op = rule["op"]
+    value = rule.get("value")
+    held, denied = profile.documents, profile.documents_denied
+
+    if op == "contains":
+        if value in held:
+            return True
+        return False if value in denied else None
+
+    if op == "contains_any":
+        if any(v in held for v in value):
+            return True
+        return False if all(v in denied for v in value) else None
+
+    if op == "not_contains":
+        if value in held:
+            return False
+        return True if value in denied else None
+
+    raise ValueError(f"not a document op: {op}")
 
 
 @dataclass
@@ -207,8 +240,10 @@ def get_rule(scheme_id: str, rule_id: str) -> dict[str, Any]:
 
 
 def evaluate_rule(rule: dict[str, Any], profile: Profile) -> RuleResult:
-    actual = profile.get(rule["field"])
-    passed = None if _is_empty_list_field(rule, actual) else _cmp(rule["op"], actual, rule.get("value"))
+    if rule["op"] in DOCUMENT_OPS:
+        passed = _evaluate_document_rule(rule, profile)
+    else:
+        passed = _cmp(rule["op"], profile.get(rule["field"]), rule.get("value"))
 
     return RuleResult(
         rule_id=rule["id"],

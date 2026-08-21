@@ -213,6 +213,51 @@ during the Prasunethon 2.0 build period** — every commit is dated within the
 event, and no code is carried over from the earlier project. The scheme
 catalogue, rule engine, and Ladder in this repo were rewritten from scratch.
 
+## Evaluation
+
+```bash
+./.venv/bin/python eval/run.py
+```
+
+53 personas — 43 with complete profiles, 10 mid-conversation — scored against
+expectations **written by hand from the published government criteria**, never
+from Setu's own output. An eval whose labels come from the system under test
+measures nothing; it only proves the code is self-consistent.
+
+```
+43 personas x 8 schemes = 344 decisions
+
+SCHEME                PREC  RECALL      F1
+pm_svanidhi          1.000   1.000   1.000
+pm_sym               1.000   1.000   1.000
+e_shram              1.000   1.000   1.000
+pmjjby               1.000   1.000   1.000
+pmsby                1.000   1.000   1.000
+pm_vishwakarma       1.000   1.000   1.000
+atal_pension         1.000   1.000   1.000
+mudra_shishu         1.000   1.000   1.000
+MICRO                1.000   1.000   1.000
+
+false rejections on missing facts: 0/80 (0.0%)
+```
+
+**A perfect score here is the expected result, not a boast.** The decision layer
+is a lookup over typed predicates — it has no error surface to speak of. What
+this eval actually proves is that the catalogue is transcribed correctly from
+the source documents, which is where the real risk lives. It is a test of the
+data, not a claim about a model.
+
+The number worth arguing about is the second one. Precision and recall are
+measured on complete profiles; **false rejections on partial information** is
+measured on people who have said one sentence, which is the state they are
+actually in when the system first has to behave well.
+
+The two failure modes cost different things. A false positive sends someone to
+a government office to be turned away — a day of wages and a bus fare. A false
+negative silently withholds money they were entitled to, and they never find
+out. The second is what this product exists to fix, which is why NEED_INFO is a
+first-class verdict rather than a rounding error.
+
 ## Designed, not yet built
 
 These are specified but **not implemented in this repository**. They are listed

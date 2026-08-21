@@ -156,6 +156,7 @@ PROFILE_SCHEMA = {
         "daily_income": {"type": "number", "nullable": True},
         "state": {"type": "string", "nullable": True},
         "documents": {"type": "array", "items": {"type": "string", "enum": DOCUMENTS}},
+        "documents_denied": {"type": "array", "items": {"type": "string", "enum": DOCUMENTS}},
         "is_epfo_esic_member": {"type": "boolean", "nullable": True},
         "is_income_tax_payer": {"type": "boolean", "nullable": True},
         "has_loan_npa": {"type": "boolean", "nullable": True},
@@ -179,8 +180,11 @@ Specific guidance:
 - Income: most people quote a DAILY figure ("500 rupees a day"). Put that in
   daily_income, not monthly_income. Only use monthly_income if they clearly
   said a monthly amount.
-- Documents: list only documents they said they HAVE. If they said they lack
-  one, do not list it.
+- Documents they said they HAVE go in `documents`. Documents they said they do
+  NOT have go in `documents_denied`. Both matter: "I have no bank account" is a
+  fact, and recording it is what lets Setu tell her how to open one. Leaving it
+  out entirely means Setu can only say "I don't know" forever.
+  A document in neither list means it never came up.
 - has_loan_npa is true only if they describe a loan gone bad, written off, or
   defaulted. Merely having a loan is NOT an NPA.
 - vending_since_year: the year they started vending, if stated.
@@ -220,11 +224,18 @@ def extract_profile(transcript: str, language: str = "hi", *, base: Profile | No
     for name, value in data.items():
         if value is None or not hasattr(profile, name):
             continue
-        if name == "documents":
-            merged = list(dict.fromkeys([*profile.documents, *value]))
-            profile.documents = merged
+        if name in ("documents", "documents_denied"):
+            merged = list(dict.fromkeys([*getattr(profile, name), *value]))
+            setattr(profile, name, merged)
         else:
             setattr(profile, name, value)
+
+    # Acquiring a document retracts the earlier denial. Without this, "I have no
+    # bank account" on turn one outlives "I opened one" on turn three, and Setu
+    # keeps routing her to a branch she has already visited.
+    profile.documents_denied = [
+        d for d in profile.documents_denied if d not in profile.documents
+    ]
 
     return profile
 

@@ -278,37 +278,169 @@ def extract_profile(transcript: str, language: str = "hi", *, base: Profile | No
 # Verdict -> spoken sentence
 # --------------------------------------------------------------------------
 
-NARRATE_PROMPT = """You are telling someone the result of an eligibility check
-that has already been decided. You are a translator, not a decision-maker.
+# What each missing field sounds like as a QUESTION A HUMAN WOULD ASK.
+#
+# Without this the field name itself reached the model, and Setu said the words
+# "क्या आप ईपीएफओ या ईएसआईसी के सदस्य हैं" -- EPFO and ESIC, spoken aloud to a
+# vegetable seller. Nobody on earth answers that question. The scheme's own
+# vocabulary is not the caller's vocabulary, and the gap between them is where
+# this product either works or doesn't.
+QUESTION_HINTS: dict[str, str] = {
+    "age": "how old they are",
+    "occupation_category": "what work they do to earn money",
+    "monthly_income_est": "roughly what they earn -- let them answer per day if that is how they think",
+    "daily_income": "roughly what they earn in a day",
+    "documents": (
+        "which papers they already have. Name a few plainly -- Aadhaar card, "
+        "a bank passbook, a ration card -- and let them say which ones they hold. "
+        "Never use the phrase 'KYC' or 'documentation'."
+    ),
+    "is_epfo_esic_member": (
+        "whether they work for themselves or have a salaried job with a company. "
+        "Ask it exactly that way. NEVER say EPFO, ESIC, or PF -- those are our "
+        "words, not theirs, and asking directly gets no answer at all."
+    ),
+    "is_income_tax_payer": (
+        "whether they file income tax every year. Keep it light -- most will "
+        "simply say no."
+    ),
+    "vending_since_year": "which year they started doing this work",
+    "took_govt_credit_scheme_last_5y": (
+        "whether they have taken any government loan in the last five years, "
+        "such as a vendor loan. Do not list scheme acronyms."
+    ),
+    "has_loan_npa": (
+        "whether any earlier loan of theirs went bad or was written off. "
+        "Ask gently; this one carries shame."
+    ),
+}
+
+
+def describe_fact(field: str, value: Any) -> str:
+    """
+    Render a learned fact as something safe to say back.
+
+    Carries the VALUE, not just the field name. Passing "whether they file
+    income tax" let the model acknowledge a caller who had just said she does
+    NOT file with "you pay tax, right" -- inverting the one fact she had
+    volunteered. An acknowledgement that gets the fact backwards is worse than
+    none, because it teaches the caller that Setu is not listening.
+    """
+    if field == "age":
+        return f"they are {value} years old"
+    if field == "occupation_category":
+        return f"they work as: {str(value).replace('_', ' ')}"
+    if field == "monthly_income":
+        return f"they earn about Rs {value:,.0f} a month"
+    if field == "daily_income":
+        return f"they earn about Rs {value:,.0f} a day"
+    if field == "vending_since_year":
+        return f"they have done this work since {value}"
+    if field == "documents":
+        return "they have: " + ", ".join(str(v).replace("_", " ") for v in value)
+    if field == "documents_denied":
+        return "they do NOT have: " + ", ".join(str(v).replace("_", " ") for v in value)
+    if field == "is_epfo_esic_member":
+        return "they work for themselves" if value is False else "they have a company job"
+    if field == "is_income_tax_payer":
+        return "they do NOT file income tax" if value is False else "they do file income tax"
+    if field == "has_loan_npa":
+        return "an earlier loan went bad" if value else "no earlier loan went bad"
+    if field == "took_govt_credit_scheme_last_5y":
+        return (
+            "they have taken a government loan recently" if value
+            else "they have not taken a government loan recently"
+        )
+    if field == "state":
+        return f"they live in {value}"
+    if field == "gender":
+        return f"their gender: {value}"
+    return f"{field.replace('_', ' ')}: {value}"
+
+
+NARRATE_PROMPT = """You are a helpful person sitting beside someone, telling
+them what government help they can get. You speak their language and nothing
+else.
+
+The eligibility decision has ALREADY been made by a rule engine reading
+government documents. You are putting it into words. You are not deciding.
 
 Hard constraints:
-- Do NOT add any scheme that is not in the list below.
-- Do NOT remove or hedge any scheme that is in the list.
+- Do NOT add any scheme that is not listed below.
+- Do NOT remove or hedge any scheme that is listed.
 - Do NOT restate or reinterpret the eligibility rules.
 - Do NOT invent amounts, deadlines, offices, or timelines.
 
-The decision was made by a rule engine reading government documents. Your only
-job is to say it in a way a person with no formal education can act on.
+How to speak:
+- Speak {language}, the way a helpful neighbour would. Warm, direct, ordinary.
+- Short sentences. This is read ALOUD, possibly down a phone line.
+- Lead with what they can get right now. That is the reason they called.
+- Then the single next step, if there is one, with what it costs and how long.
+- Never end on "you don't qualify". If there is a path, the path IS the answer.
+- No greetings, no sign-off, no markdown, no lists. Just what you would say.
+- Under 80 words.
 
-Style:
-- Speak {language}, plainly, the way a helpful neighbour would.
-- Short sentences. This will be read aloud, and possibly over a phone line.
-- Lead with the good news: what they can get right now.
-- Then the single most useful next step, if there is one.
-- Never say "you are ineligible" as a closing thought. If there is a path,
-  the path IS the answer.
-- No greetings, no sign-off, no markdown, no bullet points. Just what you'd say.
-- Under 90 words.
+When the eligible list below is empty, that means WE ARE STILL FINDING OUT --
+it does NOT mean nothing is available to them. Never say "no scheme applies to
+you", "nothing is available", or anything a person would hear as a rejection.
+We have not finished asking. Say you are still checking, then ask your one
+question. Telling someone they get nothing because they have not yet answered a
+question is the exact failure this whole system exists to prevent.
+
+WHAT THEY JUST TOLD YOU:
+{just_learned}
+
+Acknowledge that in a few words before anything else -- briefly, the way a
+person does. "Right, your own cart." Someone who answers a question and hears
+no sign they were heard stops answering.
+
+Say it back ACCURATELY. If the line says they do NOT have something, never
+acknowledge it as though they do. Getting a fact backwards is worse than
+staying silent, because it teaches them you are not listening.
+
+If the line below reads NOTHING-NEW, say no acknowledgement at all -- go
+straight to the rest. Never read the words "nothing new" aloud, and never say
+"right, nothing"; that is an instruction to you, not something they said.
+
+THE QUESTION:
+{question}
+
+End by asking that ONE question, naturally, as the last thing you say. Ask only
+that one -- never stack two questions in a turn. A person answering aloud can
+hold exactly one question in their head, and asking two gets you an answer to
+neither. If the question is "(nothing to ask)", do not ask anything; close by
+telling them what to do next instead.
+
+{repeat_note}
 
 ALREADY ELIGIBLE FOR:
 {eligible}
 
 NEXT STEP THAT UNLOCKS MORE:
 {ladder}
-
-STILL NEED TO ASK:
-{missing}
 """
+
+REPEAT_NOTE = """You have already asked this once and they answered something
+else. Ask it a different way this time, more concretely, and do not let it sound
+like a form being re-read. If they dodge twice, they may not understand the
+word you are using."""
+
+
+def choose_question(
+    missing: list[str], asked_before: list[str] | None = None
+) -> str | None:
+    """
+    Which single thing to ask about next.
+
+    Prefers something we have not asked yet. A caller who answers a different
+    question than the one posed has usually not understood it, and asking the
+    identical sentence a third time is how a conversation dies -- so we move on
+    and come back to it later rather than grinding.
+    """
+    asked = set(asked_before or [])
+    known = [f for f in missing if f in QUESTION_HINTS]
+
+    return next((f for f in known if f not in asked), next(iter(known), None))
 
 
 def narrate(
@@ -316,12 +448,20 @@ def narrate(
     paths: list[LadderPath],
     language: str = "hi",
     missing: list[str] | None = None,
+    just_learned: list[str] | None = None,
+    asked_before: list[str] | None = None,
+    profile: Profile | None = None,
 ) -> str:
     """
     Turn the engine's output into something a person can hear and act on.
 
     The model phrases; it does not decide. Everything it is allowed to say is
     already fixed by the time it is called.
+
+    `just_learned` is what changed on the profile this turn, so the reply can
+    acknowledge it. Without that the prompt is identical across turns where
+    eligibility did not move, so the cache returns the same sentence verbatim
+    and Setu reads a caller the same question three times in a row.
     """
     eligible = [d for d in decisions if d.status is Status.ELIGIBLE]
 
@@ -343,8 +483,15 @@ def narrate(
         )
     else:
         ladder_text = "(no next step available)"
-    missing_text = (
-        "\n".join(f"- {f.replace('_', ' ')}" for f in (missing or [])[:2]) or "(nothing)"
+    # Exactly one question, phrased the way a person asks it -- not the field
+    # name, and not two questions stacked into one breath.
+    field = choose_question(missing or [], asked_before)
+    question = QUESTION_HINTS[field] if field else "(nothing to ask)"
+
+    learned_text = (
+        "; ".join(describe_fact(f, getattr(profile, f)) for f in just_learned)
+        if just_learned and profile is not None
+        else "NOTHING-NEW"
     )
 
     return _generate(
@@ -352,7 +499,9 @@ def narrate(
             language=LANGUAGE_NAMES.get(language, "Hindi"),
             eligible=eligible_text,
             ladder=ladder_text,
-            missing=missing_text,
+            question=question,
+            just_learned=learned_text,
+            repeat_note=REPEAT_NOTE if field and field in (asked_before or []) else "",
         ),
         kind="narrate",
         temperature=0.2,

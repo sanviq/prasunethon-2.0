@@ -35,41 +35,40 @@ from setu.ladder import best_paths  # noqa: E402
 from setu.rules import Status, evaluate_all, missing_fields  # noqa: E402
 
 # The scripted demo arc. Each inner list is ONE conversation -- turns chain, and
-# separate conversations start from a clean profile. Flattening these caused a
-# fresh caller to inherit the previous one's bank account and open on six
-# eligible schemes she had never earned.
+# separate conversations start from a clean profile.
 #
-# Keep the phrasing parallel across languages. The first pass had the Hindi say
-# "apna thela" (my OWN cart) and the Marathi merely "I sell vegetables"; the
-# first establishes self-employment and so settles EPFO, the second does not, so
-# the Marathi demo opened on zero eligible schemes for no reason but wording.
+# These are SHORT, natural turns, because that is what people actually say. The
+# first version crammed five facts into one sentence so the demo would resolve
+# in a single turn, which flattered the system and hid the thing that matters:
+# Setu earns those facts by asking, one question at a time.
+#
+# Nothing here constrains what the system accepts -- this file is a cache
+# warmer and nothing in setu/ imports it. Any sentence works; a warmed one is
+# just free instead of 1.3s.
 CONVERSATIONS: dict[str, list[list[str]]] = {
-    "hi": [
-        [
-            "main tees saal ka hoon, apna thela lagata hoon 2015 se, roz paanch sau "
-            "kamata hoon, aadhaar hai lekin bank account nahi hai, income tax nahi bharta",
-            "haan mera jan dhan khata khul gaya hai",
-        ],
-        [
-            "main apni sabzi ki dukaan chalata hoon, meri umar chalis saal hai, "
-            "aadhaar aur bank account dono hain, income tax nahi bharta",
-        ],
-    ],
-    "mr": [
-        [
-            "mi tees varshacha aahe, majha swatacha bhajiwala thela aahe 2015 pasun, "
-            "roj paachshe rupaye miltat, aadhaar aahe pan bank account nahi, "
-            "income tax bharat nahi",
-            "hoy majhe jan dhan khate ughadle aahe",
-        ],
-    ],
-    "en": [
-        [
-            "I am thirty years old, I run my own vegetable cart since 2015, I earn "
-            "five hundred rupees a day, I have Aadhaar but no bank account, and I do "
-            "not pay income tax",
-        ],
-    ],
+    "mr": [[
+        "mi bhaji vikto",
+        "tees varshacha aahe",
+        "aadhaar aahe, bank account nahi",
+        "nahi, mi income tax bharat nahi",
+        "nahi, mi kuthlahi sarkari karj ghetla nahi",
+        "hoy majhe jan dhan khate ughadle aahe",
+    ]],
+    "hi": [[
+        "main sabzi bechta hoon",
+        "meri umar tees saal hai",
+        "aadhaar hai lekin bank account nahi hai",
+        "nahi, main income tax nahi bharta",
+        "nahi, koi sarkari loan nahi liya",
+        "haan mera jan dhan khata khul gaya hai",
+    ]],
+    "en": [[
+        "I sell vegetables from a cart",
+        "I am thirty years old",
+        "I have Aadhaar but no bank account",
+        "no, I do not pay income tax",
+        "no, I have not taken any government loan",
+    ]],
 }
 
 # Fixed lines the interface speaks regardless of what the caller said.

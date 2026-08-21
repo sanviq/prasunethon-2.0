@@ -42,6 +42,11 @@ app.add_middleware(
 # process outlives it; persistence would be scope we do not need yet.
 SESSIONS: dict[str, Profile] = {}
 
+# Which fields we have already put to each caller. Tracked so we do not read the
+# same sentence out three times when someone answers a different question than
+# the one asked -- which is the normal thing for a person to do, not an edge case.
+ASKED: dict[str, list[str]] = {}
+
 
 def _citation(result) -> dict[str, Any]:
     return {
@@ -93,14 +98,34 @@ def _ladder_card(path) -> dict[str, Any]:
     }
 
 
-def _respond(profile: Profile, session_id: str, transcript: str) -> dict[str, Any]:
+def _learned(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    """Which facts this turn actually added."""
+    return [
+        k
+        for k, v in after.items()
+        if k != "language" and v not in (None, []) and before.get(k) != v
+    ]
+
+
+def _respond(
+    profile: Profile,
+    session_id: str,
+    transcript: str,
+    just_learned: list[str] | None = None,
+) -> dict[str, Any]:
     """The pipeline, from a filled profile to everything the UI renders."""
     decisions = evaluate_all(profile)
     paths = best_paths(profile, decisions)
     unknown = missing_fields(profile)
 
+    asked = ASKED.setdefault(session_id, [])
+    asking = llm.choose_question(unknown, asked)
+
     try:
-        spoken = llm.narrate(decisions, paths, profile.language, unknown)
+        spoken = llm.narrate(
+            decisions, paths, profile.language, unknown,
+            just_learned=just_learned, asked_before=asked, profile=profile,
+        )
     except llm.LLMError as exc:
         raise HTTPException(502, f"narration failed: {exc}") from exc
 
@@ -112,9 +137,14 @@ def _respond(profile: Profile, session_id: str, transcript: str) -> dict[str, An
         # is already correct; the PWA falls back to showing it.
         pass
 
+    if asking and asking not in asked:
+        asked.append(asking)
+
     return {
         "session_id": session_id,
         "transcript": transcript,
+        "asking_about": asking,
+        "turn": len(asked),
         "language": profile.language,
         "profile": asdict(profile),
         "spoken": spoken,
@@ -173,6 +203,7 @@ async def ask(
     """Spoken question in, spoken answer out."""
     session_id = session_id or str(uuid.uuid4())
     known = SESSIONS.get(session_id)
+    before = asdict(known) if known else {}
 
     suffix = Path(audio.filename or "clip.webm").suffix or ".webm"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
@@ -199,7 +230,7 @@ async def ask(
         raise HTTPException(502, f"extraction failed: {exc}") from exc
 
     SESSIONS[session_id] = profile
-    return _respond(profile, session_id, transcript)
+    return _respond(profile, session_id, transcript, _learned(before, asdict(profile)))
 
 
 @app.post("/ask/text")
@@ -217,6 +248,7 @@ def ask_text(
     """
     session_id = session_id or str(uuid.uuid4())
     known = SESSIONS.get(session_id)
+    before = asdict(known) if known else {}
 
     try:
         profile = llm.extract_profile(text, language, base=known)
@@ -224,7 +256,7 @@ def ask_text(
         raise HTTPException(502, f"extraction failed: {exc}") from exc
 
     SESSIONS[session_id] = profile
-    return _respond(profile, session_id, text)
+    return _respond(profile, session_id, text, _learned(before, asdict(profile)))
 
 
 @app.get("/sessions")
@@ -306,6 +338,7 @@ def audio(filename: str) -> FileResponse:
 @app.delete("/session/{session_id}")
 def reset(session_id: str) -> dict[str, bool]:
     """Between demo runs, so the next caller starts clean."""
+    ASKED.pop(session_id, None)
     return {"cleared": SESSIONS.pop(session_id, None) is not None}
 
 

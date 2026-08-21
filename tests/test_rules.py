@@ -275,9 +275,21 @@ def test_an_explicit_denial_does_fail_the_rule():
 
 
 def test_contains_any_needs_every_alternative_denied_to_fail():
-    """Denying only one of two acceptable documents leaves the answer open."""
-    p = Profile(age=30, documents=[], documents_denied=["bank_account"])
-    assert evaluate_scheme("pmsby", p).status is Status.NEED_INFO
+    """
+    Denying one of two genuinely independent alternatives leaves it open.
+
+    Uses the vending-proof pair rather than bank/Jan Dhan: those two are not
+    independent (a Jan Dhan account IS a bank account), so denying one denies
+    both -- see test_denying_a_bank_account_denies_jan_dhan_too.
+    """
+    p = Profile(
+        age=30,
+        occupation_category="street_vendor",
+        vending_since_year=2015,
+        documents=["aadhaar", "bank_account"],
+        documents_denied=["vending_certificate"],  # LoR never asked about
+    )
+    assert evaluate_scheme("pm_svanidhi", p).status is Status.NEED_INFO
 
 
 def test_completing_a_remedy_retracts_the_denial():
@@ -294,3 +306,58 @@ def test_completing_a_remedy_retracts_the_denial():
     assert "jan_dhan_account" in after.documents
     assert "jan_dhan_account" not in after.documents_denied
     assert evaluate_scheme("pmjjby", after).status is Status.ELIGIBLE
+
+
+def test_denying_a_bank_account_denies_jan_dhan_too():
+    """
+    Regression, found on a real call: she said she had no bank account, but
+    jan_dhan_account stayed merely unasked, so contains_any never failed, so
+    the Ladder had no rung to route from and offered nothing to someone who
+    needed exactly one step.
+    """
+    p = Profile(age=30, documents=["aadhaar"], documents_denied=["bank_account"])
+    assert evaluate_scheme("pmjjby", p).status is Status.NOT_ELIGIBLE
+
+
+def test_holding_jan_dhan_satisfies_a_bank_account_rule():
+    """The other half of the same fact: a Jan Dhan account IS a bank account."""
+    p = Profile(age=30, documents=["aadhaar", "jan_dhan_account"], is_income_tax_payer=False)
+    assert evaluate_scheme("atal_pension", p).status is Status.ELIGIBLE
+
+
+def test_the_ladder_routes_a_vendor_who_says_she_has_no_bank_account():
+    """The end-to-end shape of the bug above: this must not come back empty."""
+    from setu.ladder import best_paths
+
+    p = Profile(
+        age=30, occupation_category="street_vendor", daily_income=500,
+        vending_since_year=2015, documents=["aadhaar"], documents_denied=["bank_account"],
+        is_epfo_esic_member=False, is_income_tax_payer=False, has_loan_npa=False,
+    )
+    paths = best_paths(p, evaluate_all(p))
+    assert paths, "a vendor one Jan Dhan account away from five schemes got no ladder"
+    assert "Jan Dhan" in paths[0].rungs[0].action
+
+
+def test_one_step_that_unlocks_five_schemes_is_reported_once():
+    """
+    Listing "open a Jan Dhan account" five times, once per scheme, buries the
+    finding. Nobody at a bank counter thinks per-scheme; the aggregate is both
+    the truer number and the one worth saying out loud.
+    """
+    from setu.ladder import best_paths, group_by_first_step
+
+    p = Profile(
+        age=30, occupation_category="street_vendor", daily_income=500,
+        vending_since_year=2015, documents=["aadhaar"], documents_denied=["bank_account"],
+        is_epfo_esic_member=False, is_income_tax_payer=False, has_loan_npa=False,
+    )
+    grouped = group_by_first_step(best_paths(p, evaluate_all(p)))
+
+    assert len(grouped) == 1, "one action, one entry"
+    assert len(grouped[0].schemes) > 1
+    assert grouped[0].unlocks_rupees == sum(
+        d.benefit_amount_rupees for d in evaluate_all(p)
+        if d.scheme_name in grouped[0].schemes
+    )
+    assert "across" in grouped[0].headline()

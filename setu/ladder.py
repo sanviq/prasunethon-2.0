@@ -182,6 +182,61 @@ def verify_path(path: Path, profile: Profile) -> bool:
     return evaluate_scheme(path.scheme_id, walked).status is Status.ELIGIBLE
 
 
+@dataclass
+class Rungs:
+    """One first step, and everything it unlocks at once."""
+
+    action: str
+    cost_rupees: int
+    days: int
+    where: str
+    citation: dict[str, Any]
+    schemes: list[str]
+    unlocks_rupees: int
+
+    def headline(self) -> str:
+        cost = "Rs 0" if self.cost_rupees == 0 else f"Rs {self.cost_rupees}"
+        n = len(self.schemes)
+        plural = "scheme" if n == 1 else "schemes"
+        return (
+            f"{self.action} - {cost} - {self.days} days "
+            f"-> unlocks Rs {self.unlocks_rupees:,} across {n} {plural}"
+        )
+
+
+def group_by_first_step(paths: list[Path]) -> list[Rungs]:
+    """
+    Collapse ladders that open with the same action.
+
+    Listing "open a Jan Dhan account" four times, once per scheme, buries the
+    actual finding: ONE free step three days from now is worth Rs 5,10,000 to
+    her. Nobody standing at a bank counter is thinking per-scheme, and the
+    aggregate is both the truer number and the one worth saying out loud.
+    """
+    groups: dict[str, Rungs] = {}
+
+    for path in paths:
+        if not path.rungs:
+            continue
+        first = path.rungs[0]
+        existing = groups.get(first.action)
+        if existing is None:
+            groups[first.action] = Rungs(
+                action=first.action,
+                cost_rupees=first.cost_rupees,
+                days=first.days,
+                where=first.where,
+                citation=first.citation,
+                schemes=[path.scheme_name],
+                unlocks_rupees=path.unlocks_rupees,
+            )
+        else:
+            existing.schemes.append(path.scheme_name)
+            existing.unlocks_rupees += path.unlocks_rupees
+
+    return sorted(groups.values(), key=lambda g: -g.unlocks_rupees)
+
+
 def best_paths(profile: Profile, decisions: list[Decision]) -> list[Path]:
     """
     Verified ladders for every scheme this person could reach, best first.

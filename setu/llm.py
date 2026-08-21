@@ -12,8 +12,25 @@ yourself asking the model "is she eligible", stop -- the answer belongs in
 schemes.json.
 
 Provider sits behind _generate() so swapping Gemini for anything else is one
-function, not a rewrite. Currently Gemini 2.5 Flash on the free tier: 10 RPM,
-250 requests/day, which is comfortably more than a demo needs.
+function, not a rewrite.
+
+Currently gemini-3.5-flash-lite on the v1 endpoint. Chosen by measurement, not
+by reputation -- every plausible default here was wrong:
+
+    2.5-flash        404, no longer served to new keys
+    3.7-flash        503, high demand
+    3.6-flash        works, 10-21s
+    3.5-flash        works, 2.7-5.7s
+    3.5-flash-lite   works, 1.3s        <- and identical extraction quality
+
+All three working models got every probe right, including the two that matter:
+a daily wage stated as "roz paanch sau" landing in daily_income rather than
+monthly, and a Marathi sentence resolving to the right trade. When accuracy
+ties, latency decides, and a demo that promises fifteen seconds cannot spend
+ten of them waiting.
+
+Re-run eval/pick_model.py when the demo feels slow or a model starts 503ing --
+availability here shifted twice in one afternoon.
 
 Everything is cached on content hash. The demo has to survive a bad conference
 wifi connection, and re-calling the model for a sentence we already have is a
@@ -32,12 +49,13 @@ from typing import Any
 import httpx
 
 from .ladder import Path as LadderPath
+from .ladder import group_by_first_step
 from .rules import Decision, Profile, Status
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "llm_cache"
-API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+API_BASE = "https://generativelanguage.googleapis.com/v1/models"
 
-MODEL = os.getenv("SETU_LLM_MODEL", "gemini-2.5-flash")
+MODEL = os.getenv("SETU_LLM_MODEL", "gemini-3.5-flash-lite")
 LLM_MODE = os.getenv("SETU_LLM_MODE", "auto")  # auto | offline
 TIMEOUT_SECONDS = float(os.getenv("SETU_LLM_TIMEOUT", "20"))
 
@@ -189,6 +207,22 @@ Specific guidance:
   defaulted. Merely having a loan is NOT an NPA.
 - vending_since_year: the year they started vending, if stated.
 
+Two fields need care, because nobody in this population will ever say the words
+"EPFO", "ESIC" or "income tax payer" — and if you wait for those exact words,
+the answer stays unknown forever and they never learn what they are owed. These
+are not guesses; each membership is *defined* by the thing being described:
+
+- is_epfo_esic_member: EPFO and ESIC come with FORMAL SALARIED EMPLOYMENT. So
+  "I work for myself", "it's my own cart/shop", "I have no employer", "no
+  company job", "I do daily wage work" all establish this as FALSE. Set it TRUE
+  only if they describe a salaried job with a company, a PF deduction, or an
+  ESIC card. If they never touch on how they work, leave it null.
+
+- is_income_tax_payer: set FALSE if they say they do not file or pay income
+  tax, or that they have no PAN for tax purposes. Do NOT infer it from a low
+  income figure alone — earning little is not the same as saying you don't file,
+  and that one really would be a guess.
+
 They were speaking {language}.
 
 What they said:
@@ -295,14 +329,20 @@ def narrate(
         "\n".join(f"- {d.scheme_name}: {d.benefit_summary}" for d in eligible)
         or "(nothing yet)"
     )
-    ladder_text = (
-        f"- {paths[0].rungs[0].action} at {paths[0].rungs[0].where}. "
-        f"Takes about {paths[0].rungs[0].days} days, costs "
-        f"{'nothing' if paths[0].rungs[0].cost_rupees == 0 else f'Rs {paths[0].rungs[0].cost_rupees}'}. "
-        f"This unlocks {paths[0].scheme_name}, worth Rs {paths[0].unlocks_rupees:,}."
-        if paths
-        else "(no next step available)"
-    )
+    # One step that unlocks five schemes is one sentence, not five. Reading the
+    # same action out repeatedly is how a strong finding gets buried.
+    grouped = group_by_first_step(paths)
+    if grouped:
+        g = grouped[0]
+        ladder_text = (
+            f"- {g.action} at {g.where}. "
+            f"Takes about {g.days} days, costs "
+            f"{'nothing' if g.cost_rupees == 0 else f'Rs {g.cost_rupees}'}. "
+            f"This one step unlocks {len(g.schemes)} schemes "
+            f"({', '.join(g.schemes)}), worth Rs {g.unlocks_rupees:,} in total."
+        )
+    else:
+        ladder_text = "(no next step available)"
     missing_text = (
         "\n".join(f"- {f.replace('_', ' ')}" for f in (missing or [])[:2]) or "(nothing)"
     )

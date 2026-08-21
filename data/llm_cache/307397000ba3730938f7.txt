@@ -1,0 +1,1 @@
+{"documents":["aadhaar"],"age":30,"daily_income":500,"documents_denied":["bank_account"],"gender":null,"has_loan_npa":null,"is_epfo_esic_member":null,"is_income_tax_payer":null,"monthly_income":null,"occupation_category":"street_vendor","state":null,"took_govt_credit_scheme_last_5y":null,"vending_since_year":null}

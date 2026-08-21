@@ -1,0 +1,18 @@
+{
+  "documents": [
+    "aadhaar",
+    "bank_account"
+  ],
+  "age": 30,
+  "daily_income": 400,
+  "documents_denied": [],
+  "gender": null,
+  "has_loan_npa": null,
+  "is_epfo_esic_member": null,
+  "is_income_tax_payer": null,
+  "monthly_income": null,
+  "occupation_category": "tailor",
+  "state": null,
+  "took_govt_credit_scheme_last_5y": null,
+  "vending_since_year": null
+}

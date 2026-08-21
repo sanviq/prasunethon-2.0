@@ -142,6 +142,34 @@ def _cmp(op: str, actual: Any, expected: Any) -> bool | None:
 
 DOCUMENT_OPS = {"contains", "contains_any", "not_contains"}
 
+# Some documents are a KIND of another. A Jan Dhan account is a bank account;
+# holding one satisfies any rule asking for the other, and -- the half that
+# actually bit us -- denying the general kind denies the specific one too.
+#
+# "I don't have a bank account" is never meant as "...but I might have a Jan
+# Dhan one". Without this, that denial left jan_dhan_account merely unasked, so
+# contains_any never failed, so the Ladder had no failing rung to route from and
+# silently offered nothing to a woman who needed exactly one step.
+DOCUMENT_IMPLIES: dict[str, set[str]] = {
+    "jan_dhan_account": {"bank_account"},
+}
+
+
+def _expand_held(held: list[str]) -> set[str]:
+    out = set(held)
+    for doc in held:
+        out |= DOCUMENT_IMPLIES.get(doc, set())
+    return out
+
+
+def _expand_denied(denied: list[str]) -> set[str]:
+    """Denying a general kind denies everything that is a kind of it."""
+    out = set(denied)
+    for specific, generals in DOCUMENT_IMPLIES.items():
+        if generals & set(denied):
+            out.add(specific)
+    return out
+
 
 def _evaluate_document_rule(rule: dict[str, Any], profile: Profile) -> bool | None:
     """
@@ -161,7 +189,8 @@ def _evaluate_document_rule(rule: dict[str, Any], profile: Profile) -> bool | No
     """
     op = rule["op"]
     value = rule.get("value")
-    held, denied = profile.documents, profile.documents_denied
+    held = _expand_held(profile.documents)
+    denied = _expand_denied(profile.documents_denied)
 
     if op == "contains":
         if value in held:

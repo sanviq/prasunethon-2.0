@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from . import llm, voice
-from .ladder import best_paths
+from .ladder import best_paths, group_by_first_step
 from .rules import Profile, Status, evaluate_all, load_schemes, missing_fields
 
 app = FastAPI(title="Setu", version="1.1.0")
@@ -123,6 +123,15 @@ def _respond(profile: Profile, session_id: str, transcript: str) -> dict[str, An
         "eligible_count": sum(1 for d in decisions if d.status is Status.ELIGIBLE),
         "schemes": [_scheme_card(d) for d in decisions],
         "ladder": [_ladder_card(p) for p in paths],
+        "next_steps": [
+            {
+                "action": g.action, "cost": g.cost_rupees, "days": g.days,
+                "where": g.where, "why": g.citation,
+                "schemes": g.schemes, "unlocks": g.unlocks_rupees,
+                "headline": g.headline(),
+            }
+            for g in group_by_first_step(paths)
+        ],
     }
 
 

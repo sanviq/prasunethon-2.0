@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f5132">
+<title>Setu</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  /* Built for a cheap Android phone in daylight, held by someone who may not
+     read. Big targets, high contrast, colour never the only signal. */
+  :root {
+    --bg: #ffffff;
+    --ink: #16210f;
+    --muted: #5a6b52;
+    --line: #d8e0d2;
+    --go: #0f5132;
+    --go-soft: #e7f3ec;
+    --wait: #8a5a00;
+    --wait-soft: #fdf3e0;
+    --stop: #7a2d2d;
+    --stop-soft: #fbeceb;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 17px/1.55 system-ui, -apple-system, "Noto Sans Devanagari", sans-serif;
+    padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 96px);
+  }
+  header {
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px;
+  }
+  h1 { font-size: 21px; margin: 0; letter-spacing: -0.01em; }
+  h1 span { color: var(--muted); font-weight: 400; font-size: 14px; display: block; }
+  main { padding: 18px 20px; max-width: 640px; margin: 0 auto; }
+
+  /* Language picker — first thing you see, because everything after it is in
+     that language and getting it wrong wastes the whole conversation. */
+  .langs { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+  .lang {
+    border: 1px solid var(--line); background: #fff; color: var(--muted);
+    border-radius: 999px; padding: 7px 13px; font-size: 15px; cursor: pointer;
+  }
+  .lang[aria-pressed="true"] { background: var(--go); border-color: var(--go); color: #fff; }
+
+  .said {
+    background: #f5f8f3; border-radius: 14px; padding: 13px 16px;
+    margin-bottom: 16px; color: var(--muted); font-size: 16px;
+  }
+  .said b { color: var(--ink); font-weight: 600; display: block; margin-bottom: 2px; font-size: 13px;
+            text-transform: uppercase; letter-spacing: .05em; }
+
+  .answer {
+    border: 2px solid var(--go); background: var(--go-soft);
+    border-radius: 16px; padding: 18px; margin-bottom: 22px; font-size: 19px;
+  }
+  .answer audio { width: 100%; margin-top: 12px; }
+
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+       color: var(--muted); margin: 26px 0 10px; font-weight: 600; }
+
+  /* The Ladder — deliberately the loudest thing on the page after the spoken
+     answer. "Not eligible" is never the end of the conversation. */
+  .rung {
+    border: 1px solid var(--line); border-left: 5px solid var(--wait);
+    border-radius: 12px; padding: 15px 16px; margin-bottom: 11px; background: #fff;
+  }
+  .rung .head { font-weight: 600; margin-bottom: 7px; }
+  .rung .meta { color: var(--muted); font-size: 15px; }
+  .rung ol { margin: 11px 0 0; padding-left: 20px; }
+  .rung li { margin-bottom: 8px; }
+
+  .card {
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 10px; background: #fff;
+  }
+  .card.ELIGIBLE { border-left: 5px solid var(--go); background: var(--go-soft); }
+  .card.NEED_INFO { border-left: 5px solid var(--wait); background: var(--wait-soft); }
+  .card.NOT_ELIGIBLE { border-left: 5px solid var(--stop); background: var(--stop-soft); }
+  .card .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .card .name { font-weight: 600; }
+  .card .amt { color: var(--muted); font-size: 15px; white-space: nowrap; }
+  .card .tag { font-size: 13px; font-weight: 600; margin-top: 3px; }
+  .ELIGIBLE .tag { color: var(--go); }
+  .NEED_INFO .tag { color: var(--wait); }
+  .NOT_ELIGIBLE .tag { color: var(--stop); }
+
+  /* Every verdict is defensible or it does not ship. */
+  details { margin-top: 10px; }
+  summary { cursor: pointer; font-size: 15px; color: var(--muted); font-weight: 600; }
+  blockquote {
+    margin: 9px 0 0; padding: 9px 13px; border-left: 3px solid var(--line);
+    color: var(--muted); font-size: 15px;
+  }
+  blockquote cite { display: block; margin-top: 5px; font-size: 13px; font-style: normal; }
+  blockquote a { color: var(--go); }
+
+  /* Mic — thumb-reachable, unmistakable, one control. */
+  .dock {
+    position: fixed; left: 0; right: 0; bottom: 0; padding: 14px 20px
+    calc(14px + env(safe-area-inset-bottom));
+    background: rgba(255,255,255,.96); backdrop-filter: blur(8px);
+    border-top: 1px solid var(--line); display: flex; justify-content: center;
+  }
+  #mic {
+    width: 100%; max-width: 600px; border: 0; border-radius: 16px;
+    background: var(--go); color: #fff; font-size: 19px; font-weight: 600;
+    padding: 19px; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 11px;
+  }
+  #mic[data-state="rec"] { background: var(--stop); animation: pulse 1.3s infinite; }
+  #mic[disabled] { background: var(--muted); }
+  @keyframes pulse { 50% { opacity: .72; } }
+
+  .note { color: var(--muted); font-size: 15px; text-align: center; padding: 26px 10px; }
+  .err { border: 1px solid var(--stop); background: var(--stop-soft); color: var(--stop);
+         border-radius: 12px; padding: 13px 15px; margin-bottom: 16px; }
+  @media (prefers-reduced-motion: reduce) { #mic { animation: none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Setu<span>बोलिए, हम सुन रहे हैं</span></h1>
+  <div class="langs" id="langs"></div>
+</header>
+
+<main>
+  <div id="out">
+    <p class="note">हरा बटन दबाइए और अपने बारे में बताइए —<br>आप क्या काम करते हैं, आपकी उम्र क्या है।</p>
+  </div>
+</main>
+
+<div class="dock">
+  <button id="mic" data-state="idle">🎤 <span id="micLabel">बोलिए</span></button>
+</div>
+
+<script>
+const API = location.origin;
+const LANGS = { hi: "हिंदी", mr: "मराठी", en: "English", kn: "ಕನ್ನಡ",
+                ta: "தமிழ்", te: "తెలుగు", bn: "বাংলা", gu: "ગુજરાતી" };
+const LABELS = {
+  hi: { speak: "बोलिए", stop: "रोकिए", wait: "सुन रहे हैं…", said: "आपने कहा",
+        why: "क्यों?", ladder: "अगला कदम", schemes: "योजनाएँ", unlocks: "मिलेगा" },
+  mr: { speak: "बोला", stop: "थांबा", wait: "ऐकत आहोत…", said: "तुम्ही म्हणालात",
+        why: "का?", ladder: "पुढचे पाऊल", schemes: "योजना", unlocks: "मिळेल" },
+  en: { speak: "Speak", stop: "Stop", wait: "Listening…", said: "You said",
+        why: "Why?", ladder: "Next step", schemes: "Schemes", unlocks: "Unlocks" },
+};
+const T = () => LABELS[lang] || LABELS.hi;
+
+let lang = localStorage.getItem("setu.lang") || "hi";
+let session = null, recorder = null, chunks = [];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const rupees = (n) => "₹" + Number(n).toLocaleString("en-IN");
+
+function drawLangs() {
+  $("langs").innerHTML = Object.entries(LANGS).map(([code, name]) =>
+    `<button class="lang" data-l="${code}" aria-pressed="${code === lang}">${name}</button>`
+  ).join("");
+  $("langs").onclick = (e) => {
+    const b = e.target.closest(".lang");
+    if (!b) return;
+    lang = b.dataset.l;
+    localStorage.setItem("setu.lang", lang);
+    // A language change starts a new conversation: the profile we built was
+    // extracted from a different language and the narration would mix.
+    session = null;
+    drawLangs();
+    $("micLabel").textContent = T().speak;
+  };
+}
+
+function citations(list) {
+  return list.map((c) => `
+    <blockquote>${esc(c.quote)}
+      <cite>${esc(c.doc)} — <a href="${esc(c.url)}" target="_blank" rel="noopener">source</a></cite>
+    </blockquote>`).join("");
+}
+
+function render(d) {
+  session = d.session_id;
+  const t = T();
+  const parts = [];
+
+  if (d.transcript) parts.push(`<div class="said"><b>${t.said}</b>${esc(d.transcript)}</div>`);
+
+  parts.push(`<div class="answer">${esc(d.spoken)}
+    ${d.audio_url ? `<audio controls autoplay src="${API}${d.audio_url}"></audio>` : ""}</div>`);
+
+  if (d.ladder.length) {
+    parts.push(`<h2>${t.ladder}</h2>`);
+    for (const p of d.ladder) {
+      parts.push(`<div class="rung">
+        <div class="head">${esc(p.scheme)} — ${t.unlocks} ${rupees(p.unlocks)}</div>
+        <div class="meta">${p.total_cost === 0 ? "₹0" : rupees(p.total_cost)} · ${p.total_days} days</div>
+        <ol>${p.steps.map((s) => `<li>${esc(s.action)}<br>
+          <span class="meta">${esc(s.where)}</span>
+          <details><summary>${t.why}</summary>${citations([s.why])}</details></li>`).join("")}</ol>
+      </div>`);
+    }
+  }
+
+  parts.push(`<h2>${t.schemes}</h2>`);
+  for (const c of d.schemes) {
+    const shown = c.status === "ELIGIBLE" ? c.passed : (c.failed.length ? c.failed : c.unknown);
+    parts.push(`<div class="card ${c.status}">
+      <div class="row"><span class="name">${esc(c.name)}</span><span class="amt">${rupees(c.amount)}</span></div>
+      <div class="tag">${c.status.replace("_", " ")}</div>
+      ${shown.length ? `<details><summary>${t.why}</summary>${citations(shown)}</details>` : ""}
+    </div>`);
+  }
+
+  $("out").innerHTML = parts.join("");
+}
+
+function fail(msg) {
+  $("out").innerHTML = `<div class="err">${esc(msg)}</div>` + $("out").innerHTML;
+}
+
+async function send(blob) {
+  const mic = $("mic");
+  mic.disabled = true;
+  $("micLabel").textContent = T().wait;
+
+  const form = new FormData();
+  form.append("audio", blob, "clip.webm");
+  form.append("language", lang);
+  if (session) form.append("session_id", session);
+
+  try {
+    const res = await fetch(`${API}/ask`, { method: "POST", body: form });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+    render(await res.json());
+  } catch (e) {
+    fail(e.message);
+  } finally {
+    mic.disabled = false;
+    mic.dataset.state = "idle";
+    $("micLabel").textContent = T().speak;
+  }
+}
+
+$("mic").onclick = async () => {
+  const mic = $("mic");
+
+  if (mic.dataset.state === "rec") {
+    recorder.stop();
+    return;
+  }
+
+  // getUserMedia refuses plain http, which is why everything runs behind a
+  // tunnel. Say so rather than failing silently.
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return fail("Microphone needs HTTPS. Open this page over the tunnel URL, not http://");
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recorder = new MediaRecorder(stream);
+    chunks = [];
+    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    recorder.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      send(new Blob(chunks, { type: "audio/webm" }));
+    };
+    recorder.start();
+    mic.dataset.state = "rec";
+    $("micLabel").textContent = T().stop;
+  } catch {
+    fail("Could not open the microphone. Check the browser permission.");
+  }
+};
+
+drawLangs();
+$("micLabel").textContent = T().speak;
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>

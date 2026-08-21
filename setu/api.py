@@ -235,3 +235,13 @@ def audio(filename: str) -> FileResponse:
 def reset(session_id: str) -> dict[str, bool]:
     """Between demo runs, so the next caller starts clean."""
     return {"cleared": SESSIONS.pop(session_id, None) is not None}
+
+
+# Mounted last so it never shadows an API route. Serving the PWA from the same
+# origin as the API keeps CORS out of the demo path entirely -- one tunnel URL,
+# not two, and one fewer thing to reconfigure when the tunnel rotates.
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+if WEB_DIR.exists():
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")

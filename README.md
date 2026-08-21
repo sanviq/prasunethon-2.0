@@ -159,7 +159,48 @@ rather than a live demo.
 python3 -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
 ./.venv/bin/python -m pytest tests/ -q
+
+cp .env.example .env        # add your Gemini key
+./.venv/bin/uvicorn setu.api:app --reload --port 8000
 ```
+
+Open `http://localhost:8000` — the PWA is served from the same origin as the
+API, so there is one URL and no CORS in the demo path.
+
+**The microphone needs HTTPS.** `getUserMedia` refuses `http://` on anything
+but localhost, which is why the phone demo runs behind a tunnel:
+
+```bash
+ngrok http 8000     # then open the https:// URL on the phone
+```
+
+Before demoing, warm the cache over wifi you trust and then pin it shut:
+
+```python
+from setu.voice import prewarm
+prewarm({"hi": ["नमस्ते, बोलिए"], "mr": ["नमस्कार, बोला"]})
+```
+
+```bash
+SETU_LLM_MODE=offline SETU_VOICE_MODE=offline ./.venv/bin/uvicorn setu.api:app
+```
+
+Both adapters then refuse network calls and serve only from cache, so the demo
+replays identically and conference wifi stops being a dependency.
+
+### Endpoints
+
+| | |
+|---|---|
+| `POST /ask` | audio in, spoken answer out |
+| `POST /ask/text` | same pipeline, typed — no mic, no tunnel, no Whisper |
+| `GET /schemes` | the catalogue with its sources |
+| `GET /health` | scheme count and supported languages |
+| `DELETE /session/{id}` | reset between demo runs |
+
+`/ask/text` exists because when something breaks twenty minutes before a demo,
+you want to know whether it is the microphone, the model, or the rules — and
+that endpoint answers the question in one curl.
 
 ---
 

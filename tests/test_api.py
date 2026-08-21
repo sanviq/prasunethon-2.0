@@ -162,6 +162,26 @@ def test_audio_endpoint_rejects_path_traversal(client, name):
 
 
 # --------------------------------------------------------------------------
+# Static mount
+# --------------------------------------------------------------------------
+
+def test_pwa_is_served_from_the_same_origin_as_the_api(client):
+    """One tunnel URL, not two, and no CORS in the demo path."""
+    assert client.get("/").status_code == 200
+    assert client.get("/manifest.webmanifest").status_code == 200
+
+
+def test_static_mount_does_not_shadow_api_routes(client):
+    """
+    The catch-all mount is registered last for exactly this reason. If it ever
+    moves up the file, every API route starts returning the PWA shell and the
+    failure looks like a frontend bug for an hour.
+    """
+    assert client.get("/health").json()["ok"] is True
+    assert client.get("/schemes").json()["schemes"]
+
+
+# --------------------------------------------------------------------------
 # Voice adapter
 # --------------------------------------------------------------------------
 

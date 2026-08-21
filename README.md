@@ -132,7 +132,12 @@ no API key.
 data/schemes.json    the scheme catalogue — this file decides who is eligible
 setu/rules.py        the eligibility engine (no LLM, by design)
 setu/ladder.py       counterfactual path search
-tests/               18 tests, and the invariants they protect
+setu/llm.py          Gemini adapter (extraction + narration)
+setu/voice.py        faster-whisper ASR, edge-tts TTS
+setu/api.py          HTTP layer
+web/                 the PWA, single file, no build step
+eval/                53 personas and the scoring harness
+tests/               61 tests, and the invariants they protect
 ```
 
 ### Adding a scheme
@@ -203,15 +208,6 @@ you want to know whether it is the microphone, the model, or the rules — and
 that endpoint answers the question in one curl.
 
 ---
-
-## Provenance
-
-Setu began as an idea at IBM HackVerse 2.0 with
-[Palak Patnaik](https://github.com/pxlkele), who consented to the concept being
-carried forward here. **This repository is a fresh implementation written
-during the Prasunethon 2.0 build period** — every commit is dated within the
-event, and no code is carried over from the earlier project. The scheme
-catalogue, rule engine, and Ladder in this repo were rewritten from scratch.
 
 ## Evaluation
 

@@ -1,0 +1,208 @@
+"""
+Tests for the HTTP layer and the voice adapter.
+
+No network, no Whisper model, no Gemini key. Everything external is stubbed --
+what is being tested is the wiring, and specifically that a failure in one
+external service degrades instead of taking the caller's answer with it.
+"""
+
+from __future__ import annotations
+
+import pytest
+from fastapi.testclient import TestClient
+
+from setu import api, llm, voice
+from setu.api import app
+
+
+@pytest.fixture
+def client(monkeypatch):
+    monkeypatch.setattr(llm, "narrate", lambda *a, **k: "aap e-Shram ke liye patra hain.")
+    monkeypatch.setattr(voice, "speak", lambda text, lang="hi": voice.CACHE_DIR / "stub.mp3")
+    api.SESSIONS.clear()
+    return TestClient(app)
+
+
+def _extract_returns(monkeypatch, **fields):
+    from setu.rules import Profile
+
+    def fake(transcript, language="hi", *, base=None):
+        p = base or Profile()
+        p.language = language
+        for k, v in fields.items():
+            setattr(p, k, v)
+        return p
+
+    monkeypatch.setattr(llm, "extract_profile", fake)
+
+
+# --------------------------------------------------------------------------
+# Basics
+# --------------------------------------------------------------------------
+
+def test_health_reports_catalogue_and_languages(client):
+    body = client.get("/health").json()
+    assert body["ok"] is True
+    assert body["schemes"] == 8
+    assert "mr" in body["languages"] and "hi" in body["languages"]
+
+
+def test_schemes_endpoint_exposes_a_source_for_every_scheme(client):
+    for scheme in client.get("/schemes").json()["schemes"]:
+        assert scheme["source"].startswith("https://")
+        assert scheme["rule_count"] > 0
+
+
+# --------------------------------------------------------------------------
+# The pipeline
+# --------------------------------------------------------------------------
+
+def test_text_ask_returns_cards_and_a_ladder(client, monkeypatch):
+    _extract_returns(
+        monkeypatch,
+        age=30,
+        occupation_category="street_vendor",
+        daily_income=500,
+        documents=["aadhaar"],
+        vending_since_year=2019,
+        is_epfo_esic_member=False,
+        is_income_tax_payer=False,
+        has_loan_npa=False,
+    )
+
+    body = client.post("/ask/text", data={"text": "main sabzi bechta hoon", "language": "mr"}).json()
+
+    assert body["language"] == "mr"
+    assert len(body["schemes"]) == 8
+    assert body["ladder"], "a vendor with only Aadhaar should have somewhere to climb"
+    assert body["ladder"][0]["steps"][0]["why"]["url"].startswith("https://")
+
+
+def test_every_card_carries_citations_for_what_failed(client, monkeypatch):
+    _extract_returns(monkeypatch, age=65, documents=["aadhaar", "bank_account"])
+    body = client.post("/ask/text", data={"text": "main 65 saal ka hoon"}).json()
+
+    rejected = [c for c in body["schemes"] if c["status"] == "NOT_ELIGIBLE"]
+    assert rejected, "a 65-year-old should fail at least one age band"
+    for card in rejected:
+        assert card["failed"], f"{card['id']} rejected without saying why"
+        assert all(f["quote"] for f in card["failed"])
+
+
+def test_session_carries_facts_across_turns(client, monkeypatch):
+    _extract_returns(monkeypatch, age=30)
+    first = client.post("/ask/text", data={"text": "main tees saal ka hoon"}).json()
+    session = first["session_id"]
+
+    _extract_returns(monkeypatch, daily_income=500)
+    second = client.post(
+        "/ask/text", data={"text": "roz paanch sau", "session_id": session}
+    ).json()
+
+    assert second["profile"]["age"] == 30, "the second turn forgot the first"
+    assert second["profile"]["daily_income"] == 500
+
+
+def test_reset_clears_the_session(client, monkeypatch):
+    _extract_returns(monkeypatch, age=30)
+    session = client.post("/ask/text", data={"text": "hi"}).json()["session_id"]
+
+    assert client.delete(f"/session/{session}").json()["cleared"] is True
+    assert client.delete(f"/session/{session}").json()["cleared"] is False
+
+
+# --------------------------------------------------------------------------
+# Degrading instead of failing
+# --------------------------------------------------------------------------
+
+def test_missing_audio_does_not_cost_the_caller_their_answer(client, monkeypatch):
+    """
+    TTS is the most fragile link in the chain. If it breaks, the text answer is
+    still correct and the PWA can show it -- losing the whole response because
+    an mp3 failed would be the wrong trade.
+    """
+    def boom(text, lang="hi"):
+        raise voice.VoiceError("edge-tts unreachable")
+
+    monkeypatch.setattr(voice, "speak", boom)
+    _extract_returns(monkeypatch, age=30, documents=["aadhaar"])
+
+    body = client.post("/ask/text", data={"text": "kuch bhi"}).json()
+    assert body["audio_url"] is None
+    assert body["spoken"], "the answer text should survive a TTS failure"
+
+
+def test_extraction_failure_surfaces_as_502_not_a_wrong_verdict(client, monkeypatch):
+    def boom(*a, **k):
+        raise llm.LLMError("quota exhausted")
+
+    monkeypatch.setattr(llm, "extract_profile", boom)
+    assert client.post("/ask/text", data={"text": "kuch bhi"}).status_code == 502
+
+
+def test_silent_recording_is_rejected_before_the_llm_is_billed(client, monkeypatch):
+    monkeypatch.setattr(voice, "transcribe", lambda path, lang=None: ("", "hi"))
+
+    def should_not_run(*a, **k):
+        raise AssertionError("extraction ran on an empty transcript")
+
+    monkeypatch.setattr(llm, "extract_profile", should_not_run)
+
+    response = client.post("/ask", files={"audio": ("clip.webm", b"\x00\x00", "audio/webm")})
+    assert response.status_code == 422
+
+
+# --------------------------------------------------------------------------
+# Audio serving
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("name", ["../../etc/passwd", "a/b.mp3", "notes.txt"])
+def test_audio_endpoint_rejects_path_traversal(client, name):
+    assert client.get(f"/audio/{name}").status_code in (400, 404)
+
+
+# --------------------------------------------------------------------------
+# Voice adapter
+# --------------------------------------------------------------------------
+
+def test_every_supported_language_has_a_voice():
+    for code, name in voice.VOICES.items():
+        assert name.startswith(f"{code}-"), f"{code} mapped to an unrelated voice"
+
+
+def test_unknown_detected_language_falls_back_to_hindi(monkeypatch):
+    """
+    Whisper returns languages we have no voice for. Answering in a language we
+    cannot speak is worse than answering in Hindi.
+    """
+    class FakeInfo:
+        language = "sw"
+
+    monkeypatch.setattr(voice, "_whisper", lambda: type(
+        "M", (), {"transcribe": lambda self, *a, **k: ([], FakeInfo())}
+    )())
+
+    _, detected = voice.transcribe("clip.wav")
+    assert detected == "hi"
+
+
+def test_speak_refuses_empty_text():
+    with pytest.raises(voice.VoiceError):
+        voice.speak("   ")
+
+
+def test_offline_mode_refuses_uncached_audio(monkeypatch, tmp_path):
+    monkeypatch.setattr(voice, "VOICE_MODE", "offline")
+    monkeypatch.setattr(voice, "CACHE_DIR", tmp_path)
+    with pytest.raises(voice.VoiceOffline):
+        voice.speak("a sentence never synthesised before", "hi")
+
+
+def test_cached_audio_is_returned_without_synthesis(monkeypatch, tmp_path):
+    monkeypatch.setattr(voice, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(voice, "VOICE_MODE", "offline")
+
+    path = voice._cache_path("namaste", voice.VOICES["hi"])
+    path.write_bytes(b"fake mp3")
+
+    assert voice.speak("namaste", "hi") == path

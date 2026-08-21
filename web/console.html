@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setu — Operator Console</title>
+<style>
+  /* Light is the base; dark is a selected set, not an automatic flip. Declared
+     under both the media query and the data-theme scope so an explicit toggle
+     wins in either direction. */
+  :root {
+    color-scheme: light;
+    --surface:    #fcfcfb;
+    --plane:      #f9f9f7;
+    --ink:        #0b0b0b;
+    --ink-2:      #52514e;
+    --ink-3:      #83827d;
+    --line:       #e3e2dd;
+    --series-1:   #2a78d6;
+    --good:       #0ca30c;
+    --warning:    #fab219;
+    --critical:   #d03b3b;
+    --warning-ink: #7a5200;   /* readable stand-in for warning as TEXT on light */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --warning-ink: #fab219;
+      --surface:  #1a1a19;
+      --plane:    #0d0d0d;
+      --ink:      #ffffff;
+      --ink-2:    #c3c2b7;
+      --ink-3:    #8f8e86;
+      --line:     #33322f;
+      --series-1: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+      --warning-ink: #fab219;
+    --surface:  #1a1a19;
+    --plane:    #0d0d0d;
+    --ink:      #ffffff;
+    --ink-2:    #c3c2b7;
+    --ink-3:    #8f8e86;
+    --line:     #33322f;
+    --series-1: #3987e5;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--plane); color: var(--ink);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 24px 72px; }
+
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.015em; }
+  .sub { color: var(--ink-2); font-size: 14px; }
+  .live { margin-left: auto; color: var(--ink-3); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .07em;
+       color: var(--ink-2); margin: 34px 0 12px; font-weight: 600; }
+  h2 .hint { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--ink-3); }
+
+  /* Stat tiles — the headline numbers are not a chart. */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .tile .n { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .tile .l { color: var(--ink-2); font-size: 12.5px; margin-top: 3px; }
+  .tile .foot { color: var(--ink-3); font-size: 11.5px; margin-top: 5px; }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em;
+       color: var(--ink-3); font-weight: 600; padding: 0 10px 9px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 11px 10px 11px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .scroll { overflow-x: auto; }
+
+  /* Status is icon + label + color, never color alone -- light-mode warning
+     sits below 3:1 on this surface by design, so hue can't carry it. */
+  .st { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .st.good    { color: var(--good); }
+  /* Warning text uses a darkened step on the light surface -- #fab219 is 1.79:1
+     there, unreadable as text. The dot beside it stays the true status hue. */
+  .st.warning { color: var(--warning-ink); }
+  .st.critical{ color: var(--critical); }
+
+  /* Single-series magnitude bars: one hue, thin marks, rounded data-end. */
+  .bars { display: grid; gap: 2px; }
+  .bar-row { display: grid; grid-template-columns: 132px 1fr 92px; align-items: center; gap: 12px;
+             padding: 3px 0; cursor: default; }
+  .bar-row .nm { color: var(--ink-2); font-size: 12.5px; }
+  .bar-track { display: block; position: relative; height: 16px;
+               background: color-mix(in srgb, var(--line) 55%, transparent); border-radius: 0 4px 4px 0; }
+  .bar-fill { display: block; height: 16px; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .bar-row .v { text-align: right; font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--ink); }
+  .bar-row:hover .bar-fill { filter: brightness(1.12); }
+
+  .tip { position: fixed; z-index: 40; pointer-events: none; opacity: 0; transition: opacity .1s;
+         background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+         padding: 9px 11px; font-size: 12.5px; max-width: 300px;
+         box-shadow: 0 6px 22px rgb(0 0 0 / .16); }
+  .tip.on { opacity: 1; }
+  .tip b { display: block; margin-bottom: 3px; }
+  .tip .q { color: var(--ink-2); font-size: 12px; }
+
+  pre { background: var(--plane); border: 1px solid var(--line); border-radius: 8px;
+        padding: 14px; overflow-x: auto; font-size: 12px; line-height: 1.5; margin: 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  a { color: var(--series-1); }
+  .empty { color: var(--ink-3); padding: 20px 0; font-size: 13.5px; }
+  .toggle { background: var(--surface); border: 1px solid var(--line); color: var(--ink-2);
+            border-radius: 7px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+  .elig { display: flex; align-items: baseline; gap: 7px; padding: 1px 0; white-space: nowrap; }
+  .rule { color: var(--ink-2); font-size: 12.5px; margin: 3px 0; }
+  .rule .q { color: var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Setu</h1>
+  <span class="sub">Operator console</span>
+  <span class="live" id="live">—</span>
+</header>
+
+<h2>System</h2>
+<div class="tiles" id="tiles"></div>
+
+<h2>Live callers <span class="hint">— refreshes every 5s</span></h2>
+<div class="panel scroll" id="sessions"><div class="empty">No active sessions.</div></div>
+
+<h2>Scheme catalogue <span class="hint">— benefit value, ₹</span></h2>
+<div class="panel">
+  <div class="bars" id="bars"></div>
+</div>
+
+<h2>Catalogue detail</h2>
+<div class="panel scroll" id="catalogue"></div>
+
+<h2>Evaluation <span class="hint">— live from the same harness the test suite runs</span></h2>
+<div class="panel">
+  <pre id="evalout">running…</pre>
+</div>
+
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+const API = location.origin;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const rupees = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
+
+// Status carries an icon and a label, never colour alone.
+const STATUS = {
+  ELIGIBLE:     { cls: "good",     icon: "●", label: "Eligible" },
+  NEED_INFO:    { cls: "warning",  icon: "◐", label: "Need info" },
+  NOT_ELIGIBLE: { cls: "critical", icon: "○", label: "Not eligible" },
+};
+const badge = (s) => {
+  const m = STATUS[s] || STATUS.NEED_INFO;
+  return `<span class="st ${m.cls}">${m.icon} ${m.label}</span>`;
+};
+
+const tip = $("tip");
+function bindTip(el, html) {
+  el.addEventListener("mousemove", (e) => {
+    tip.innerHTML = html;
+    tip.classList.add("on");
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - w - 10) + "px";
+    tip.style.top = Math.max(8, Math.min(e.clientY + 14, innerHeight - h - 10)) + "px";
+  });
+  el.addEventListener("mouseleave", () => tip.classList.remove("on"));
+}
+
+async function get(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error(path + " → " + r.status);
+  return r.json();
+}
+
+async function loadSystem() {
+  const [health, schemes] = await Promise.all([get("/health"), get("/schemes")]);
+  const rules = schemes.schemes.reduce((a, s) => a + s.rule_count, 0);
+  const total = schemes.schemes.reduce((a, s) => a + s.amount, 0);
+
+  $("tiles").innerHTML = [
+    [health.schemes, "Schemes in catalogue", "every rule cited to source"],
+    [rules, "Typed eligibility rules", "no LLM touches a verdict"],
+    [health.languages.length, "Languages", health.languages.join(" · ")],
+    [rupees(total), "Total benefit modelled", "across all schemes"],
+  ].map(([n, l, f]) =>
+    `<div class="tile"><div class="n">${n}</div><div class="l">${esc(l)}</div><div class="foot">${esc(f)}</div></div>`
+  ).join("");
+
+  // Magnitude, one series, one hue -- so no legend; the heading names it.
+  const max = Math.max(...schemes.schemes.map((s) => s.amount));
+  const sorted = [...schemes.schemes].sort((a, b) => b.amount - a.amount);
+  $("bars").innerHTML = sorted.map((s) => `
+    <div class="bar-row" data-id="${s.id}">
+      <span class="nm">${esc(s.name)}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${(s.amount / max * 100).toFixed(1)}%"></span></span>
+      <span class="v">${rupees(s.amount)}</span>
+    </div>`).join("");
+
+  for (const row of $("bars").children) {
+    const s = sorted.find((x) => x.id === row.dataset.id);
+    bindTip(row, `<b>${esc(s.full_name)}</b><span class="q">${esc(s.benefit)}</span>`);
+  }
+
+  $("catalogue").innerHTML = `<table>
+    <thead><tr><th>Scheme</th><th>Category</th><th class="num">Rules</th><th class="num">Benefit</th><th>Source</th></tr></thead>
+    <tbody>${sorted.map((s) => `<tr>
+      <td><strong>${esc(s.name)}</strong><div class="rule q">${esc(s.full_name)}</div></td>
+      <td>${esc(s.category)}</td>
+      <td class="num">${s.rule_count}</td>
+      <td class="num">${rupees(s.amount)}</td>
+      <td><a href="${esc(s.source)}" target="_blank" rel="noopener">official</a></td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
+async function loadSessions() {
+  const d = await get("/sessions");
+  $("live").textContent =
+    `${d.sessions.length} active · ${rupees(d.total_entitled)} entitled · ${rupees(d.total_unlockable)} unlockable`;
+
+  if (!d.sessions.length) {
+    $("sessions").innerHTML = `<div class="empty">No active sessions. Open the
+      <a href="/">caller app</a> and speak, or POST to <code>/ask/text</code>.</div>`;
+    return;
+  }
+
+  $("sessions").innerHTML = `<table>
+    <thead><tr>
+      <th>Caller</th><th>Known</th><th>Eligible now</th>
+      <th class="num">Entitled</th><th>Next step</th><th>Ask next</th>
+    </tr></thead>
+    <tbody>${d.sessions.map((s) => `<tr>
+      <td><code>${esc(s.session_id.slice(0, 8))}</code><div class="rule q">${esc(s.language)}</div></td>
+      <td class="num">${s.known_facts}</td>
+      <td>${s.eligible.length
+            ? s.eligible.map((e) => `<div class="elig">${badge("ELIGIBLE")} <span>${esc(e.name)}</span></div>`).join("")
+            : badge("NEED_INFO")}</td>
+      <td class="num">${rupees(s.entitled_now)}</td>
+      <td class="rule">${s.next_step ? esc(s.next_step) : "—"}</td>
+      <td class="rule q">${s.next_questions.map((q) => esc(q.replace(/_/g, " "))).join(", ") || "—"}</td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
+async function loadEval() {
+  try {
+    const d = await get("/eval");
+    $("evalout").textContent = d.report.trim();
+  } catch (e) {
+    $("evalout").textContent = "eval unavailable: " + e.message;
+  }
+}
+
+loadSystem().catch((e) => ($("tiles").innerHTML = `<div class="empty">${esc(e.message)}</div>`));
+loadEval();
+loadSessions().catch(() => {});
+setInterval(() => loadSessions().catch(() => {}), 5000);
+</script>
+</body>
+</html>

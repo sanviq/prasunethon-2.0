@@ -11,6 +11,7 @@ in the wrong place.
 
 from __future__ import annotations
 
+import sys
 import tempfile
 import uuid
 from dataclasses import asdict
@@ -215,6 +216,68 @@ def ask_text(
 
     SESSIONS[session_id] = profile
     return _respond(profile, session_id, text)
+
+
+@app.get("/sessions")
+def sessions() -> dict[str, Any]:
+    """
+    Every live caller, as an operator sees them.
+
+    This is the view a Bank Mitra or CSC operator works from: who is mid
+    conversation, what Setu has established so far, what it still needs to ask,
+    and what the person is owed right now.
+    """
+    rows = []
+    for sid, profile in SESSIONS.items():
+        decisions = evaluate_all(profile)
+        paths = best_paths(profile, decisions)
+        eligible = [d for d in decisions if d.status is Status.ELIGIBLE]
+
+        rows.append({
+            "session_id": sid,
+            "language": profile.language,
+            "profile": asdict(profile),
+            "known_facts": sum(
+                1 for k, v in asdict(profile).items()
+                if k != "language" and v not in (None, [])
+            ),
+            "eligible": [{"name": d.scheme_name, "amount": d.benefit_amount_rupees}
+                         for d in eligible],
+            "entitled_now": sum(d.benefit_amount_rupees for d in eligible),
+            "unlockable": sum(p.unlocks_rupees for p in paths),
+            "next_step": paths[0].headline() if paths else None,
+            "next_questions": missing_fields(profile)[:2],
+        })
+
+    rows.sort(key=lambda r: -r["entitled_now"])
+    return {
+        "sessions": rows,
+        "total_entitled": sum(r["entitled_now"] for r in rows),
+        "total_unlockable": sum(r["unlockable"] for r in rows),
+    }
+
+
+@app.get("/eval")
+def evaluation() -> dict[str, Any]:
+    """
+    The eval numbers, live from the same harness the test suite runs.
+
+    Served rather than pasted so the dashboard can never show a stale figure --
+    a precision number that was true last Tuesday is worse than none, because
+    it is the one thing a judge is entitled to take at face value.
+    """
+    import io
+    import sys as _sys
+    from contextlib import redirect_stdout
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "eval"))
+    import run as harness  # noqa: PLC0415
+
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        code = harness.main()
+
+    return {"passing": code == 0, "report": buffer.getvalue()}
 
 
 @app.get("/audio/{filename}")

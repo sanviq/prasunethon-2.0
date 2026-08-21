@@ -263,3 +263,57 @@ def test_real_environment_beats_the_file(tmp_path, monkeypatch):
 
     setu._load_env(env)
     assert os.environ["SETU_LLM_MODE"] == "offline"
+
+
+# --------------------------------------------------------------------------
+# Operator console endpoints
+# --------------------------------------------------------------------------
+
+def test_sessions_summarises_each_caller(client, monkeypatch):
+    _extract_returns(
+        monkeypatch,
+        age=30,
+        occupation_category="street_vendor",
+        daily_income=500,
+        documents=["aadhaar"],
+        documents_denied=["bank_account", "jan_dhan_account"],
+        vending_since_year=2019,
+        is_epfo_esic_member=False,
+        is_income_tax_payer=False,
+        has_loan_npa=False,
+    )
+    client.post("/ask/text", data={"text": "main sabzi bechta hoon"})
+
+    body = client.get("/sessions").json()
+    assert len(body["sessions"]) == 1
+
+    row = body["sessions"][0]
+    assert row["eligible"], "an e-Shram-eligible vendor should show as entitled to something"
+    assert row["entitled_now"] > 0
+    assert row["next_step"], "a vendor with no bank account has somewhere to climb"
+    assert body["total_unlockable"] > 0
+
+
+def test_sessions_ranks_by_what_the_caller_is_owed(client, monkeypatch):
+    _extract_returns(monkeypatch, age=30, documents=["aadhaar", "bank_account"])
+    client.post("/ask/text", data={"text": "one"})
+    _extract_returns(monkeypatch, occupation_category="potter")
+    client.post("/ask/text", data={"text": "two"})
+
+    amounts = [r["entitled_now"] for r in client.get("/sessions").json()["sessions"]]
+    assert amounts == sorted(amounts, reverse=True)
+
+
+def test_eval_endpoint_serves_live_numbers(client):
+    """
+    Served rather than pasted: a precision figure that was true last Tuesday is
+    worse than none, because it is the one number a judge takes at face value.
+    """
+    body = client.get("/eval").json()
+    assert body["passing"] is True
+    assert "MICRO" in body["report"]
+    assert "false rejections on missing facts: 0/" in body["report"]
+
+
+def test_console_is_served(client):
+    assert client.get("/console.html").status_code == 200

@@ -44,18 +44,27 @@
   }
   .lang[aria-pressed="true"] { background: var(--go); border-color: var(--go); color: #fff; }
 
-  .said {
-    background: #f5f8f3; border-radius: 14px; padding: 13px 16px;
-    margin-bottom: 16px; color: var(--muted); font-size: 16px;
+  /* A conversation, not a single reply. Earlier turns stay on screen: it is
+     the record of what Setu was told, and the thing a caller scrolls back
+     through when an operator asks "what did you say about the bank account?" */
+  .turn { display: flex; margin-bottom: 12px; }
+  .turn.me { justify-content: flex-end; }
+  .bubble { max-width: 84%; border-radius: 16px; padding: 12px 15px; font-size: 17px; }
+  .me .bubble {
+    background: #f0f4ee; color: var(--ink); border-bottom-right-radius: 5px;
   }
-  .said b { color: var(--ink); font-weight: 600; display: block; margin-bottom: 2px; font-size: 13px;
-            text-transform: uppercase; letter-spacing: .05em; }
+  .setu .bubble {
+    background: var(--go-soft); border: 1px solid var(--go);
+    border-bottom-left-radius: 5px; font-size: 18px;
+  }
+  .setu .bubble audio { width: 100%; margin-top: 10px; height: 34px; }
+  .turn .who {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin-bottom: 4px; font-weight: 600;
+  }
 
-  .answer {
-    border: 2px solid var(--go); background: var(--go-soft);
-    border-radius: 16px; padding: 18px; margin-bottom: 22px; font-size: 19px;
-  }
-  .answer audio { width: 100%; margin-top: 12px; }
+  /* Only the latest turn carries the panels; older ones stay as plain speech. */
+  #panels { margin-top: 8px; }
 
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
        color: var(--muted); margin: 26px 0 10px; font-weight: 600; }
@@ -127,9 +136,9 @@
 </header>
 
 <main>
-  <div id="out">
-    <p class="note">हरा बटन दबाइए और अपने बारे में बताइए —<br>आप क्या काम करते हैं, आपकी उम्र क्या है।</p>
-  </div>
+  <div id="thread"></div>
+  <div id="panels"></div>
+  <p class="note" id="hint">हरा बटन दबाइए और अपने बारे में बताइए —<br>आप क्या काम करते हैं, आपकी उम्र क्या है।</p>
 </main>
 
 <div class="dock">
@@ -189,25 +198,44 @@ function citations(list) {
     </blockquote>`).join("");
 }
 
+function bubble(who, label, html) {
+  const row = document.createElement("div");
+  row.className = `turn ${who}`;
+  row.innerHTML = `<div><div class="who">${esc(label)}</div>
+    <div class="bubble">${html}</div></div>`;
+  $("thread").appendChild(row);
+  row.scrollIntoView({ behavior: "smooth", block: "end" });
+  return row;
+}
+
 function render(d) {
   session = d.session_id;
   const t = T();
+
+  if (d.transcript) bubble("me", t.said, esc(d.transcript));
+  const row = bubble("setu", "Setu", esc(d.spoken) +
+    (d.audio_url ? `<audio controls preload="auto" src="${API}${d.audio_url}"></audio>` : ""));
+
+  // Play it ourselves rather than trusting the autoplay attribute. Chrome
+  // refuses autoplay without a user gesture and then does not even load the
+  // file, so the reply sits silent at 0:00 with no error anywhere. The mic tap
+  // is a gesture, so this normally succeeds; when it does not, `controls` means
+  // there is still a play button rather than silence.
+  const audio = row.querySelector("audio");
+  if (audio) audio.play().catch(() => {});
+
+  // Panels always describe the CURRENT state, so they are replaced rather than
+  // appended -- an old ladder left on screen is advice that is no longer true.
   const parts = [];
-
-  if (d.transcript) parts.push(`<div class="said"><b>${t.said}</b>${esc(d.transcript)}</div>`);
-
-  parts.push(`<div class="answer">${esc(d.spoken)}
-    ${d.audio_url ? `<audio controls autoplay src="${API}${d.audio_url}"></audio>` : ""}</div>`);
 
   if (d.ladder.length) {
     parts.push(`<h2>${t.ladder}</h2>`);
-    for (const p of d.ladder) {
+    for (const p of d.next_steps || []) {
       parts.push(`<div class="rung">
-        <div class="head">${esc(p.scheme)} — ${t.unlocks} ${rupees(p.unlocks)}</div>
-        <div class="meta">${p.total_cost === 0 ? "₹0" : rupees(p.total_cost)} · ${p.total_days} days</div>
-        <ol>${p.steps.map((s) => `<li>${esc(s.action)}<br>
-          <span class="meta">${esc(s.where)}</span>
-          <details><summary>${t.why}</summary>${citations([s.why])}</details></li>`).join("")}</ol>
+        <div class="head">${esc(p.action)}</div>
+        <div class="meta">${p.cost === 0 ? "₹0" : rupees(p.cost)} · ${p.days} days ·
+          ${t.unlocks} ${rupees(p.unlocks)} (${p.schemes.length})</div>
+        <details><summary>${t.why}</summary>${citations([p.why])}</details>
       </div>`);
     }
   }
@@ -222,11 +250,15 @@ function render(d) {
     </div>`);
   }
 
-  $("out").innerHTML = parts.join("");
+  $("panels").innerHTML = parts.join("");
 }
 
 function fail(msg) {
-  $("out").innerHTML = `<div class="err">${esc(msg)}</div>` + $("out").innerHTML;
+  const row = document.createElement("div");
+  row.className = "err";
+  row.textContent = msg;
+  $("thread").appendChild(row);
+  row.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
 async function send(blob) {
@@ -248,6 +280,7 @@ async function send(blob) {
   try {
     const res = await fetch(`${API}/ask`, { method: "POST", body: form });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+    $("hint")?.remove();
     render(await res.json());
   } catch (e) {
     // Show what the server actually said. "Failed to fetch" means the request

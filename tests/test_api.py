@@ -8,6 +8,8 @@ external service degrades instead of taking the caller's answer with it.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -227,3 +229,37 @@ def test_cached_audio_is_returned_without_synthesis(monkeypatch, tmp_path):
     path.write_bytes(b"fake mp3")
 
     assert voice.speak("namaste", "hi") == path
+
+
+# --------------------------------------------------------------------------
+# .env loading
+# --------------------------------------------------------------------------
+
+def test_env_file_is_read(tmp_path, monkeypatch):
+    """
+    Regression: .env.example told you to put the key here, but nothing read the
+    file. A correctly-filled .env produced "GEMINI_API_KEY is not set", which
+    reads as an auth problem rather than a missing call.
+    """
+    import setu
+
+    env = tmp_path / ".env"
+    env.write_text('# a comment\nGEMINI_API_KEY="abc123"\n\nSETU_LLM_MODEL=flash-lite\n')
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("SETU_LLM_MODEL", raising=False)
+
+    setu._load_env(env)
+    assert os.environ["GEMINI_API_KEY"] == "abc123"
+    assert os.environ["SETU_LLM_MODEL"] == "flash-lite"
+
+
+def test_real_environment_beats_the_file(tmp_path, monkeypatch):
+    """So `SETU_LLM_MODE=offline uvicorn ...` works without editing .env."""
+    import setu
+
+    env = tmp_path / ".env"
+    env.write_text("SETU_LLM_MODE=auto\n")
+    monkeypatch.setenv("SETU_LLM_MODE", "offline")
+
+    setu._load_env(env)
+    assert os.environ["SETU_LLM_MODE"] == "offline"

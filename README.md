@@ -42,13 +42,6 @@ Every path is verified by replaying it against the rule engine before it is
 shown — a route that does not actually work is worse than admitting there is
 none, because the person spends real days finding out.
 
-**Missed-call callback — the zero-cost funnel.** No smartphone, no data plan,
-no app, no literacy required. The user gives a missed call to the Setu number.
-Setu hangs up, calls back at its own cost, and runs the entire flow over IVR:
-language selection on the keypad, spoken question, spoken answer with the
-scheme match and the next step. This is the channel that reaches the users who
-need it most, and it costs the user nothing.
-
 **"Why?" citations.** Every verdict points at the government clause it came
 from — document, page, and the quoted sentence. Users and auditors verify
 decisions rather than trusting them.
@@ -89,8 +82,7 @@ exists to replace.
 ## Architecture
 
 ```
-voice in ──┬─ browser mic (PWA)
-           └─ Twilio missed call → callback → IVR
+voice in ─── browser mic (PWA)
                     │
               faster-whisper ASR   (local, 8 Indian languages, auto-detect)
                     │
@@ -104,12 +96,27 @@ voice in ──┬─ browser mic (PWA)
                     │
               edge-tts             (free, no key, 8 voices)
                     │
-           ┌────────┴────────┐
-      audio to PWA      audio over Twilio
+              audio back to the PWA
 ```
 
 Both the ASR and LLM layers sit behind single-function adapters, so swapping a
 provider is one function, not a rewrite.
+
+### The LLM layer
+
+Gemini 2.5 Flash, on the free tier — 10 requests/minute, 250/day, which is
+comfortably more than a demo needs. Extraction runs at `temperature=0` against
+a `response_schema`, so the JSON that reaches the rule engine is structurally
+guaranteed rather than hoped for.
+
+Every call is cached on a content hash. Conference wifi is unreliable and
+re-calling a model for a sentence we already have is a needless risk on stage,
+so `SETU_LLM_MODE=offline` refuses network calls entirely and serves only from
+cache. Run the demo that way.
+
+The extraction prompt's most important instruction is to leave unstated fields
+null. A guessed age becomes a wrong verdict the person never gets to contest,
+so silence must never become a fact.
 
 ### Languages
 
@@ -165,7 +172,28 @@ during the Prasunethon 2.0 build period** — every commit is dated within the
 event, and no code is carried over from the earlier project. The scheme
 catalogue, rule engine, and Ladder in this repo were rewritten from scratch.
 
-## Roadmap
+## Designed, not yet built
+
+These are specified but **not implemented in this repository**. They are listed
+here because the architecture accommodates them, not because they ship today.
+
+### Missed-call callback — the zero-cost funnel
+
+The channel that reaches the users who need Setu most: no smartphone, no data
+plan, no app, no literacy. The user gives a missed call to the Setu number.
+Setu hangs up, calls back at its own cost, and runs the same flow over IVR —
+language selection on the keypad, spoken question, spoken answer carrying the
+scheme match and the next step.
+
+It costs the user nothing, which is the entire point: every rupee of friction
+at the top of the funnel removes exactly the people the scheme was written for.
+
+The pieces it needs, none of which are present here: a Twilio webhook to catch
+the inbound call and trigger the callback, a keypad language menu, and an audio
+bridge between the TTS output and the call leg. The core loop it would sit on
+top of — ASR, extraction, rule engine, Ladder, TTS — is built and tested.
+
+### Others
 
 Retrieval over the full scheme corpus for free-form questions beyond the rule
 set; Document Doctor for name-mismatch detection before an application fails

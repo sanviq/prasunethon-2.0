@@ -5,3 +5,4 @@ __pycache__/
 data/voice_cache/
 data/chroma/
 .DS_Store
+data/llm_cache/

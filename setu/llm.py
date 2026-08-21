@@ -223,14 +223,29 @@ are not guesses; each membership is *defined* by the thing being described:
   income figure alone — earning little is not the same as saying you don't file,
   and that one really would be a guess.
 
+{answering}
 They were speaking {language}.
 
 What they said:
 \"\"\"{transcript}\"\"\"
 """
 
+ANSWERING_NOTE = """IMPORTANT -- they were just asked: {question}
 
-def extract_profile(transcript: str, language: str = "hi", *, base: Profile | None = None) -> Profile:
+So a bare "yes", "no", "haan", "nahi", "hoy", "nahin" answers THAT question and
+nothing else. Record it against the right field. A one-word answer with no
+context recorded against nothing is how this conversation ends up asking the
+same question a third time.
+"""
+
+
+def extract_profile(
+    transcript: str,
+    language: str = "hi",
+    *,
+    base: Profile | None = None,
+    answering: str | None = None,
+) -> Profile:
     """
     Build a Profile from what someone said.
 
@@ -242,6 +257,11 @@ def extract_profile(transcript: str, language: str = "hi", *, base: Profile | No
         EXTRACT_PROMPT.format(
             language=LANGUAGE_NAMES.get(language, "Hindi"),
             transcript=transcript.strip(),
+            answering=(
+                ANSWERING_NOTE.format(question=QUESTION_HINTS[answering])
+                if answering and answering in QUESTION_HINTS
+                else ""
+            ),
         ),
         kind="extract",
         schema=PROFILE_SCHEMA,
@@ -290,11 +310,37 @@ QUESTION_HINTS: dict[str, str] = {
     "occupation_category": "what work they do to earn money",
     "monthly_income_est": "roughly what they earn -- let them answer per day if that is how they think",
     "daily_income": "roughly what they earn in a day",
+    # One question per document, never "what papers do you have". That question
+    # cannot be answered in a way that closes the gap: a caller who says
+    # "Aadhaar and a ration card" HAS answered, yet the bank account is still
+    # unknown, so the gap survives and the same sentence gets asked again. Ask
+    # about the one document that is actually blocking, as a yes/no.
     "documents": (
         "which papers they already have. Name a few plainly -- Aadhaar card, "
-        "a bank passbook, a ration card -- and let them say which ones they hold. "
-        "Never use the phrase 'KYC' or 'documentation'."
+        "a bank passbook, a ration card. Never say 'KYC' or 'documentation'."
     ),
+    "documents:aadhaar": "whether they have an Aadhaar card. A simple yes or no.",
+    "documents:bank_account": (
+        "whether they have a bank account of any kind -- any bank passbook, "
+        "including a Jan Dhan account. A simple yes or no."
+    ),
+    "documents:jan_dhan_account": (
+        "whether they have a bank account of any kind, including a Jan Dhan "
+        "account. A simple yes or no."
+    ),
+    "documents:vending_certificate": (
+        "whether the municipality has given them a vending certificate, a "
+        "vendor ID card, or a letter from the Town Vending Committee. Many "
+        "vendors have none of these, so ask as though the answer is probably no."
+    ),
+    "documents:letter_of_recommendation": (
+        "whether they have a letter from the Town Vending Committee or the "
+        "municipal office."
+    ),
+    "documents:ration_card": "whether they have a ration card.",
+    "documents:pan": "whether they have a PAN card.",
+    "documents:voter_id": "whether they have a voter ID card.",
+    "documents:upi_id": "whether they use UPI on a phone.",
     "is_epfo_esic_member": (
         "whether they work for themselves or have a salaried job with a company. "
         "Ask it exactly that way. NEVER say EPFO, ESIC, or PF -- those are our "
@@ -437,10 +483,22 @@ def choose_question(
     identical sentence a third time is how a conversation dies -- so we move on
     and come back to it later rather than grinding.
     """
-    asked = set(asked_before or [])
+    history = list(asked_before or [])
     known = [f for f in missing if f in QUESTION_HINTS]
+    if not known:
+        return None
 
-    return next((f for f in known if f not in asked), next(iter(known), None))
+    # `missing` arrives ranked by how many schemes the field gates, so the first
+    # entry is always the question worth the most. Take it -- UNLESS we asked it
+    # in the last two turns, in which case they have dodged it and hearing it a
+    # third time is how someone decides the thing is broken.
+    #
+    # Coming back to a dodged question matters more than politely never
+    # repeating: age gates nearly every scheme, so a caller who answered
+    # something else when asked her age must be asked again, or she reaches the
+    # end of the conversation still eligible for nothing.
+    recent = set(history[-2:])
+    return next((f for f in known if f not in recent), known[0])
 
 
 def narrate(

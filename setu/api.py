@@ -120,6 +120,12 @@ def _ladder_card(path) -> dict[str, Any]:
     }
 
 
+def _last_question(session_id: str) -> str | None:
+    """What we asked this caller last turn, so a bare "no" can be attributed."""
+    asked = ASKED.get(session_id)
+    return asked[-1] if asked else None
+
+
 def _learned(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
     """Which facts this turn actually added."""
     return [
@@ -159,7 +165,11 @@ def _respond(
         # is already correct; the PWA falls back to showing it.
         pass
 
-    if asking and asking not in asked:
+    if asking:
+        # Append every turn, repeats included. Deduplicating broke two things at
+        # once: _last_question() returned a stale field, so a bare "no" got
+        # attributed to whatever was asked three turns ago, and the "was this
+        # asked recently" check could not see a repeat at all.
         asked.append(asking)
 
     return {
@@ -249,7 +259,9 @@ async def ask(
         raise HTTPException(422, "no speech detected in the recording")
 
     try:
-        profile = llm.extract_profile(transcript, detected, base=known)
+        profile = llm.extract_profile(
+            transcript, detected, base=known, answering=_last_question(session_id)
+        )
     except llm.LLMError as exc:
         raise HTTPException(502, f"extraction failed: {exc}") from exc
 
@@ -275,7 +287,9 @@ def ask_text(
     before = asdict(known) if known else {}
 
     try:
-        profile = llm.extract_profile(text, language, base=known)
+        profile = llm.extract_profile(
+            text, language, base=known, answering=_last_question(session_id)
+        )
     except llm.LLMError as exc:
         raise HTTPException(502, f"extraction failed: {exc}") from exc
 

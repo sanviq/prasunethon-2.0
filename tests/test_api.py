@@ -28,7 +28,7 @@ def client(monkeypatch):
 def _extract_returns(monkeypatch, **fields):
     from setu.rules import Profile
 
-    def fake(transcript, language="hi", *, base=None):
+    def fake(transcript, language="hi", *, base=None, answering=None):
         p = base or Profile()
         p.language = language
         for k, v in fields.items():

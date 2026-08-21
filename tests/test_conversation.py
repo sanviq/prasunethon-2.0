@@ -158,3 +158,66 @@ def test_prompt_forbids_narrating_need_info_as_rejection(stub):
     llm.narrate([], [], "hi", ["age"])
     assert "STILL FINDING OUT" in calls[0]
     assert "no scheme applies" in calls[0]
+
+
+# --------------------------------------------------------------------------
+# The stuck-conversation bugs, from a real session
+# --------------------------------------------------------------------------
+
+def test_document_gaps_are_reported_per_document():
+    """
+    Regression: "documents" was one coarse field, so once it was the top gap
+    Setu asked "what papers do you have?" forever. A caller answering "Aadhaar
+    and a ration card" HAS answered -- but the bank account is still unknown,
+    so the gap survived and the identical sentence came back three times.
+    """
+    from setu.rules import missing_fields as mf
+
+    gaps = mf(Profile(
+        age=30, occupation_category="street_vendor", daily_income=1500,
+        vending_since_year=2010, documents=["aadhaar", "ration_card"],
+        is_epfo_esic_member=False,
+    ))
+    assert "documents" not in gaps, "still asking about papers in general"
+    assert "documents:bank_account" in gaps
+    assert all(g in llm.QUESTION_HINTS for g in gaps), "a gap nobody can phrase"
+
+
+def test_the_same_question_is_never_asked_twice_running():
+    asked = ["age", "documents:bank_account"]
+    assert llm.choose_question(
+        ["documents:bank_account", "is_income_tax_payer"], asked
+    ) != "documents:bank_account"
+
+
+def test_a_dodged_question_comes_back():
+    """
+    Age gates nearly every scheme. A caller who answered something else when
+    asked her age must be asked again, or she reaches the end of the
+    conversation eligible for nothing -- which is exactly what happened.
+    """
+    # asked long ago, and it is the highest-impact gap left
+    assert llm.choose_question(["age", "documents:pan"], ["age", "x", "y"]) == "age"
+
+
+def test_falls_back_rather_than_going_silent():
+    assert llm.choose_question(["age"], ["age", "age"]) == "age"
+
+
+def test_extraction_is_told_what_was_just_asked(stub):
+    """
+    A bare "no" means nothing without the question. Without this the answer got
+    attributed to whatever was asked three turns ago, changed nothing, and the
+    same question came round again.
+    """
+    calls = stub({"documents": []})
+    llm.extract_profile("no", "en", answering="documents:bank_account")
+
+    assert "they were just asked" in calls[0].lower()
+    assert "bank account" in calls[0]
+
+
+def test_no_answering_context_means_no_note(stub):
+    calls = stub({"documents": []})
+    llm.extract_profile("main sabzi bechta hoon", "hi")
+    assert "they were just asked" not in calls[0].lower()

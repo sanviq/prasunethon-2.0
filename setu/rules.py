@@ -219,6 +219,11 @@ class RuleResult:
     field_name: str
     citation: dict[str, Any]
     remedy: dict[str, Any] | None
+    # For document rules: which documents would satisfy this. "documents" as a
+    # single field is too coarse to ask about -- a caller who answers "I have
+    # Aadhaar and a ration card" has answered, yet bank_account is still
+    # unknown, so the gap persists and the same question gets asked forever.
+    wanted: tuple[str, ...] = ()
 
     @property
     def is_fixable(self) -> bool:
@@ -274,6 +279,11 @@ def evaluate_rule(rule: dict[str, Any], profile: Profile) -> RuleResult:
     else:
         passed = _cmp(rule["op"], profile.get(rule["field"]), rule.get("value"))
 
+    value = rule.get("value")
+    wanted = (
+        tuple(value) if isinstance(value, list) else (value,)
+    ) if rule["op"] in DOCUMENT_OPS else ()
+
     return RuleResult(
         rule_id=rule["id"],
         description=rule["description"],
@@ -286,6 +296,7 @@ def evaluate_rule(rule: dict[str, Any], profile: Profile) -> RuleResult:
             "quote": rule["source_quote"],
         },
         remedy=rule.get("remedy"),
+        wanted=wanted,
     )
 
 
@@ -344,6 +355,11 @@ def missing_fields(profile: Profile) -> list[str]:
         if decision.status is Status.ELIGIBLE:
             continue
         for result in decision.unknown:
-            if result.gating:
-                counts[result.field_name] = counts.get(result.field_name, 0) + 1
+            if not result.gating:
+                continue
+            # Document gaps are reported per document, so the next question can
+            # name the one thing still missing rather than re-asking "what
+            # papers do you have" at someone who just listed her papers.
+            key = f"documents:{result.wanted[0]}" if result.wanted else result.field_name
+            counts[key] = counts.get(key, 0) + 1
     return [f for f, _ in sorted(counts.items(), key=lambda kv: -kv[1])]

@@ -239,7 +239,9 @@ async def ask(
         hint = language or (known.language if known else None)
         transcript, detected = voice.transcribe(clip, hint)
     except voice.VoiceError as exc:
-        raise HTTPException(503, f"transcription failed: {exc}") from exc
+        # 422, not 503: the recording is the problem, not the service, and the
+        # message is written to be shown to the person holding the phone.
+        raise HTTPException(422, str(exc)) from exc
     finally:
         clip.unlink(missing_ok=True)
 

@@ -142,16 +142,23 @@ const LANGS = { hi: "हिंदी", mr: "मराठी", en: "English", kn:
                 ta: "தமிழ்", te: "తెలుగు", bn: "বাংলা", gu: "ગુજરાતી" };
 const LABELS = {
   hi: { speak: "बोलिए", stop: "रोकिए", wait: "सुन रहे हैं…", said: "आपने कहा",
-        why: "क्यों?", ladder: "अगला कदम", schemes: "योजनाएँ", unlocks: "मिलेगा" },
+        why: "क्यों?", ladder: "अगला कदम", schemes: "योजनाएँ", unlocks: "मिलेगा",
+        tooShort: "थोड़ा और बोलिए — बटन दबाकर पूरा वाक्य कहिए।" },
   mr: { speak: "बोला", stop: "थांबा", wait: "ऐकत आहोत…", said: "तुम्ही म्हणालात",
-        why: "का?", ladder: "पुढचे पाऊल", schemes: "योजना", unlocks: "मिळेल" },
+        why: "का?", ladder: "पुढचे पाऊल", schemes: "योजना", unlocks: "मिळेल",
+        tooShort: "थोडं अजून बोला — बटण दाबून पूर्ण वाक्य सांगा." },
   en: { speak: "Speak", stop: "Stop", wait: "Listening…", said: "You said",
-        why: "Why?", ladder: "Next step", schemes: "Schemes", unlocks: "Unlocks" },
+        why: "Why?", ladder: "Next step", schemes: "Schemes", unlocks: "Unlocks",
+        tooShort: "Say a little more — hold the button and speak a full sentence." },
 };
 const T = () => LABELS[lang] || LABELS.hi;
 
 let lang = localStorage.getItem("setu.lang") || "hi";
-let session = null, recorder = null, chunks = [];
+let session = null, recorder = null, chunks = [], startedAt = 0, timer = null;
+
+// A turn costs ~10-20s, almost all of it speech recognition. Without a visible
+// counter that reads as the app having died, and people tap the button again.
+const MIN_RECORD_MS = 1200;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
@@ -225,6 +232,12 @@ function fail(msg) {
 async function send(blob) {
   const mic = $("mic");
   mic.disabled = true;
+
+  const began = Date.now();
+  clearInterval(timer);
+  timer = setInterval(() => {
+    $("micLabel").textContent = `${T().wait} ${Math.round((Date.now() - began) / 1000)}s`;
+  }, 500);
   $("micLabel").textContent = T().wait;
 
   const form = new FormData();
@@ -237,8 +250,14 @@ async function send(blob) {
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
     render(await res.json());
   } catch (e) {
-    fail(e.message);
+    // Show what the server actually said. "Failed to fetch" means the request
+    // never landed at all -- almost always the server not running -- and that
+    // is a different problem from anything the server can tell us about.
+    fail(e.message === "Failed to fetch"
+      ? "Could not reach Setu. Is the server running on this address?"
+      : e.message);
   } finally {
+    clearInterval(timer);
     mic.disabled = false;
     mic.dataset.state = "idle";
     $("micLabel").textContent = T().speak;
@@ -266,8 +285,14 @@ $("mic").onclick = async () => {
     recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     recorder.onstop = () => {
       stream.getTracks().forEach((t) => t.stop());
-      send(new Blob(chunks, { type: "audio/webm" }));
+      const blob = new Blob(chunks, { type: "audio/webm" });
+
+      if (Date.now() - startedAt < MIN_RECORD_MS || blob.size < 2048) {
+        return fail(T().tooShort);
+      }
+      send(blob);
     };
+    startedAt = Date.now();
     recorder.start();
     mic.dataset.state = "rec";
     $("micLabel").textContent = T().stop;

@@ -1,7 +1,0 @@
-{
-  "documents": [],
-  "age": 45,
-  "monthly_income": 12000,
-  "occupation_category": "street_vendor",
-  "vending_since_year": 2015
-}

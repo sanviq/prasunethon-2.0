@@ -193,7 +193,7 @@ def test_every_supported_language_has_a_voice():
         assert name.startswith(f"{code}-"), f"{code} mapped to an unrelated voice"
 
 
-def test_unknown_detected_language_falls_back_to_hindi(monkeypatch):
+def test_unknown_detected_language_falls_back_to_hindi(monkeypatch, tmp_path):
     """
     Whisper returns languages we have no voice for. Answering in a language we
     cannot speak is worse than answering in Hindi.
@@ -205,8 +205,50 @@ def test_unknown_detected_language_falls_back_to_hindi(monkeypatch):
         "M", (), {"transcribe": lambda self, *a, **k: ([], FakeInfo())}
     )())
 
-    _, detected = voice.transcribe("clip.wav")
+    clip = tmp_path / "clip.wav"
+    clip.write_bytes(b"\x00" * (voice.MIN_CLIP_BYTES + 1))
+
+    _, detected = voice.transcribe(clip)
     assert detected == "hi"
+
+
+def test_a_tap_instead_of_a_sentence_is_a_clear_error(tmp_path):
+    """
+    Regression: a too-short recording raised PyAV's InvalidDataError deep in the
+    decoder. It is not a VoiceError, so it escaped as a bare 500 and reached the
+    phone as "Internal Server Error" -- every short tap looked like the server
+    falling over.
+    """
+    clip = tmp_path / "tap.webm"
+    clip.write_bytes(b"\x1aE\xdf\xa3" + b"\x00" * 100)
+
+    with pytest.raises(voice.VoiceError, match="too short"):
+        voice.transcribe(clip)
+
+
+def test_undecodable_audio_becomes_a_voice_error(tmp_path, monkeypatch):
+    """Anything PyAV cannot parse must surface as ours, not as a 500."""
+    clip = tmp_path / "junk.webm"
+    clip.write_bytes(b"not a container at all" * 200)
+
+    class Boom:
+        def transcribe(self, *a, **k):
+            raise ValueError("Invalid data found when processing input")
+
+    monkeypatch.setattr(voice, "_whisper", lambda: Boom())
+    with pytest.raises(voice.VoiceError, match="could not read the recording"):
+        voice.transcribe(clip)
+
+
+def test_a_bad_recording_returns_422_not_500(client, monkeypatch):
+    def boom(path, lang=None):
+        raise voice.VoiceError("recording too short — hold the button and speak")
+
+    monkeypatch.setattr(voice, "transcribe", boom)
+    r = client.post("/ask", files={"audio": ("clip.webm", b"\x00" * 64, "audio/webm")})
+
+    assert r.status_code == 422
+    assert "hold the button" in r.json()["detail"]
 
 
 def test_speak_refuses_empty_text():

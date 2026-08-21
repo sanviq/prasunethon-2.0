@@ -61,6 +61,10 @@ VOICES = {
 
 DEFAULT_LANGUAGE = "hi"
 
+# Below this a webm container is a tap, not a sentence. MediaRecorder emits a
+# few hundred bytes of header even when nothing was said.
+MIN_CLIP_BYTES = 2048
+
 
 class VoiceError(RuntimeError):
     pass
@@ -118,13 +122,28 @@ def transcribe(audio_path: str | Path, language: str | None = None) -> tuple[str
     answer like "haan" is a coin flip that can silently switch the whole session
     into the wrong language.
     """
-    segments, info = _whisper().transcribe(
-        str(audio_path),
-        language=language,
-        vad_filter=True,  # drops market noise between phrases
-        beam_size=1,      # greedy: faster, and the gain from beam search is
-                          # inaudible on short utterances
-    )
+    size = Path(audio_path).stat().st_size if Path(audio_path).exists() else 0
+    if size < MIN_CLIP_BYTES:
+        # A tap rather than a sentence. Decoding this raises deep inside PyAV
+        # with a message about invalid data, which tells the caller nothing.
+        raise VoiceError("recording too short — hold the button and speak")
+
+    try:
+        segments, info = _whisper().transcribe(
+            str(audio_path),
+            language=language,
+            vad_filter=True,  # drops market noise between phrases
+            beam_size=1,      # greedy: faster, and the gain from beam search is
+                              # inaudible on short utterances
+        )
+        segments = list(segments)  # force the generator HERE, inside the guard
+    except VoiceError:
+        raise
+    except Exception as exc:
+        # PyAV raises InvalidDataError, not anything of ours, so this used to
+        # escape as a bare 500 and reach the browser as "Internal Server Error".
+        # Every undecodable recording looked like the server falling over.
+        raise VoiceError(f"could not read the recording ({type(exc).__name__})") from exc
 
     transcript = " ".join(segment.text.strip() for segment in segments).strip()
     detected = language or info.language

@@ -152,7 +152,7 @@
         {
           "id": "svanidhi_vending_before_cutoff",
           "description": "Must have been vending on or before 24 March 2020",
-          "field": "vending_since_year",
+          "field": "vending_since_year_est",
           "op": "lte",
           "value": 2020,
           "gating": true,

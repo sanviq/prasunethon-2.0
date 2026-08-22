@@ -19,6 +19,7 @@ to replace.
 from __future__ import annotations
 
 import json
+from datetime import date
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache
@@ -55,6 +56,9 @@ class Profile:
     is_income_tax_payer: bool | None = None
     has_loan_npa: bool | None = None
     vending_since_year: int | None = None
+    # "I started when I was fifteen" is how people answer this. Almost nobody
+    # remembers the calendar year, but everyone remembers their own age.
+    started_work_age: int | None = None
     took_govt_credit_scheme_last_5y: bool | None = None
     language: str = "hi"
 
@@ -95,9 +99,29 @@ def _monthly_income_est(p: Profile) -> float | None:
     return None
 
 
+def _vending_since_year_est(p: Profile) -> int | None:
+    """
+    Which year they started, from whatever they actually said.
+
+    Asking "which year did you start" gets you a blank look; asking a
+    fifty-year-old to convert "I was fifteen" into 1991 on the spot is a literacy
+    test, not a question. But if she has told us she is 20 and started at 15,
+    the year is arithmetic on two facts she stated -- and arithmetic is exactly
+    what belongs in this file rather than in a model's guess.
+    """
+    if p.vending_since_year is not None:
+        return p.vending_since_year
+    if p.age is not None and p.started_work_age is not None:
+        years_working = p.age - p.started_work_age
+        if 0 <= years_working <= 80:
+            return date.today().year - years_working
+    return None
+
+
 DERIVED_FIELDS: dict[str, Callable[[Profile], Any]] = {
     "annual_turnover": _annual_turnover,
     "monthly_income_est": _monthly_income_est,
+    "vending_since_year_est": _vending_since_year_est,
 }
 
 

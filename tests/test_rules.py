@@ -361,3 +361,42 @@ def test_one_step_that_unlocks_five_schemes_is_reported_once():
         if d.scheme_name in grouped[0].schemes
     )
     assert "across" in grouped[0].headline()
+
+
+def test_start_year_is_derived_from_age_and_starting_age():
+    """
+    Nobody remembers the calendar year they started working, but everyone
+    remembers how old they were. If she says she is 20 and started at 15, the
+    year is arithmetic on two facts she stated -- not a guess, and so it belongs
+    here rather than in a model's head.
+    """
+    from datetime import date
+
+    p = Profile(age=20, started_work_age=15)
+    assert p.get("vending_since_year_est") == date.today().year - 5
+
+
+def test_a_stated_year_beats_the_derivation():
+    p = Profile(age=20, started_work_age=15, vending_since_year=2015)
+    assert p.get("vending_since_year_est") == 2015
+
+
+def test_start_year_stays_unknown_without_both_facts():
+    assert Profile(age=20).get("vending_since_year_est") is None
+    assert Profile(started_work_age=15).get("vending_since_year_est") is None
+
+
+def test_nonsense_ages_do_not_produce_a_year():
+    """Started at 40, now 20. Garbage in must not become a confident year."""
+    assert Profile(age=20, started_work_age=40).get("vending_since_year_est") is None
+
+
+def test_a_vendor_who_only_knows_her_starting_age_still_reaches_svanidhi():
+    """The end-to-end point: this used to leave SVANidhi permanently unknown."""
+    p = Profile(
+        age=40, started_work_age=25,           # -> started ~2011, before the cutoff
+        occupation_category="street_vendor", daily_income=500,
+        documents=["aadhaar", "bank_account", "vending_certificate"],
+        has_loan_npa=False,
+    )
+    assert evaluate_scheme("pm_svanidhi", p).status is Status.ELIGIBLE

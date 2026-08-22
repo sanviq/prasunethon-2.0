@@ -179,6 +179,7 @@ PROFILE_SCHEMA = {
         "is_income_tax_payer": {"type": "boolean", "nullable": True},
         "has_loan_npa": {"type": "boolean", "nullable": True},
         "vending_since_year": {"type": "integer", "nullable": True},
+        "started_work_age": {"type": "integer", "nullable": True},
         "took_govt_credit_scheme_last_5y": {"type": "boolean", "nullable": True},
     },
     "required": ["documents"],
@@ -205,7 +206,11 @@ Specific guidance:
   A document in neither list means it never came up.
 - has_loan_npa is true only if they describe a loan gone bad, written off, or
   defaulted. Merely having a loan is NOT an NPA.
-- vending_since_year: the year they started vending, if stated.
+- Starting work: if they name a YEAR ("since 2015"), put it in
+  vending_since_year. If instead they say how OLD they were ("I started when I
+  was fifteen"), put 15 in started_work_age and leave vending_since_year null.
+  Do NOT convert one into the other yourself -- Setu does that arithmetic from
+  their stated age, and it is the kind of sum that must be exact.
 
 Two fields need care, because nobody in this population will ever say the words
 "EPFO", "ESIC" or "income tax payer" — and if you wait for those exact words,
@@ -350,7 +355,18 @@ QUESTION_HINTS: dict[str, str] = {
         "whether they file income tax every year. Keep it light -- most will "
         "simply say no."
     ),
-    "vending_since_year": "which year they started doing this work",
+    "vending_since_year": (
+        "when they started this work. Let them answer either way -- the year, "
+        "or simply how old they were when they started. Most people remember "
+        "their own age far better than a calendar year, so offer that option "
+        "out loud."
+    ),
+    "vending_since_year_est": (
+        "when they started this work. Let them answer either way -- the year, "
+        "or simply how old they were when they started. Most people remember "
+        "their own age far better than a calendar year, so offer that option "
+        "out loud."
+    ),
     "took_govt_credit_scheme_last_5y": (
         "whether they have taken any government loan in the last five years, "
         "such as a vendor loan. Do not list scheme acronyms."
@@ -382,6 +398,8 @@ def describe_fact(field: str, value: Any) -> str:
         return f"they earn about Rs {value:,.0f} a day"
     if field == "vending_since_year":
         return f"they have done this work since {value}"
+    if field == "started_work_age":
+        return f"they started this work at age {value}"
     if field == "documents":
         return "they have: " + ", ".join(str(v).replace("_", " ") for v in value)
     if field == "documents_denied":

@@ -79,6 +79,61 @@ def _citation(result) -> dict[str, Any]:
     }
 
 
+def _localise(payload: dict[str, Any], language: str) -> None:
+    """
+    Translate the reading text on the cards into the caller's language.
+
+    Collected and sent as ONE call for the whole response rather than one per
+    string -- and cached, so the catalogue costs a single call per language for
+    the entire demo.
+
+    `quote` is replaced with a translation but `quote_en` keeps the government's
+    exact words. The English is what makes the "Why?" panel an audit trail: a
+    translated clause is easier to read but it is no longer the thing the
+    government actually wrote, and a citation you have quietly paraphrased is
+    not a citation. Both ship; the page shows the readable one and keeps the
+    original underneath.
+    """
+    if language == "en":
+        return
+
+    slots: list[tuple[dict[str, Any], str]] = []
+    for card in payload["schemes"]:
+        slots.append((card, "benefit"))
+        for group in ("passed", "failed", "unknown"):
+            for citation in card[group]:
+                citation["quote_en"] = citation["quote"]
+                slots.append((citation, "rule"))
+                slots.append((citation, "quote"))
+
+    for step in payload.get("next_steps", []):
+        slots.append((step, "action"))
+        slots.append((step, "where"))
+
+    translated = llm.translate([holder[key] for holder, key in slots], language)
+    for (holder, key), value in zip(slots, translated):
+        holder[key] = value
+
+
+def _unique(citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    One clause, one entry.
+
+    Age bands are written as two rules -- a minimum and a maximum -- that quote
+    the SAME government sentence, so the panel showed it twice in a row and
+    looked like a rendering bug. It also doubled the translation payload for
+    nothing.
+    """
+    seen: set[tuple[str, str]] = set()
+    out = []
+    for citation in citations:
+        key = (citation["doc"], citation["quote"])
+        if key not in seen:
+            seen.add(key)
+            out.append(citation)
+    return out
+
+
 def _scheme_card(decision) -> dict[str, Any]:
     """
     One scheme, as the UI needs it.
@@ -93,9 +148,9 @@ def _scheme_card(decision) -> dict[str, Any]:
         "status": decision.status.value,
         "benefit": decision.benefit_summary,
         "amount": decision.benefit_amount_rupees,
-        "passed": [_citation(r) for r in decision.results if r.passed is True],
-        "failed": [_citation(r) for r in decision.failed],
-        "unknown": [_citation(r) for r in decision.unknown],
+        "passed": _unique([_citation(r) for r in decision.results if r.passed is True]),
+        "failed": _unique([_citation(r) for r in decision.failed]),
+        "unknown": _unique([_citation(r) for r in decision.unknown]),
     }
 
 
@@ -172,7 +227,7 @@ def _respond(
         # asked recently" check could not see a repeat at all.
         asked.append(asking)
 
-    return {
+    payload = {
         "session_id": session_id,
         "transcript": transcript,
         "asking_about": asking,
@@ -195,6 +250,9 @@ def _respond(
             for g in group_by_first_step(paths)
         ],
     }
+
+    _localise(payload, profile.language)
+    return payload
 
 
 @app.get("/health")

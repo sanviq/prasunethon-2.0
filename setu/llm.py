@@ -43,6 +43,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,7 @@ API_BASE = "https://generativelanguage.googleapis.com/v1/models"
 MODEL = os.getenv("SETU_LLM_MODEL", "gemini-3.5-flash-lite")
 LLM_MODE = os.getenv("SETU_LLM_MODE", "auto")  # auto | offline
 TIMEOUT_SECONDS = float(os.getenv("SETU_LLM_TIMEOUT", "20"))
+RETRY_SECONDS = float(os.getenv("SETU_LLM_RETRY_SECONDS", "4"))
 
 LANGUAGE_NAMES = {
     "hi": "Hindi",
@@ -142,19 +144,34 @@ def _generate(
         config["responseMimeType"] = "application/json"
         config["responseSchema"] = schema
 
-    try:
-        response = httpx.post(
-            f"{API_BASE}/{MODEL}:generateContent",
-            headers={"x-goog-api-key": api_key},
-            json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": config},
-            timeout=TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except httpx.HTTPError as exc:
-        raise LLMError(f"Gemini call failed: {exc}") from exc
-    except (KeyError, IndexError) as exc:
-        raise LLMError(f"unexpected Gemini response shape: {exc}") from exc
+    # The free tier is 15 requests/minute. A burst -- prewarming, or a judge
+    # trying the demo twice in a row -- hits 429, and without a retry the turn
+    # just fails in front of them. Backoff is short because the caller is
+    # waiting; three tries covers a burst without stalling a conversation.
+    last: Exception | None = None
+    for attempt in range(3):
+        try:
+            response = httpx.post(
+                f"{API_BASE}/{MODEL}:generateContent",
+                headers={"x-goog-api-key": api_key},
+                json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": config},
+                timeout=TIMEOUT_SECONDS,
+            )
+            if response.status_code in (429, 503) and attempt < 2:
+                time.sleep(RETRY_SECONDS * (attempt + 1))
+                continue
+            response.raise_for_status()
+            text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+            break
+        except httpx.HTTPError as exc:
+            last = exc
+            if attempt == 2:
+                raise LLMError(f"Gemini call failed: {exc}") from exc
+            time.sleep(RETRY_SECONDS * (attempt + 1))
+        except (KeyError, IndexError) as exc:
+            raise LLMError(f"unexpected Gemini response shape: {exc}") from exc
+    else:
+        raise LLMError(f"Gemini call failed after retries: {last}")
 
     _store(key, text)
     return text
@@ -582,3 +599,71 @@ def narrate(
         kind="narrate",
         temperature=0.2,
     ).strip()
+
+
+# --------------------------------------------------------------------------
+# UI translation
+# --------------------------------------------------------------------------
+
+TRANSLATE_PROMPT = """Translate each numbered line into {language}.
+
+These are government scheme descriptions and eligibility clauses being shown to
+someone with little formal education. Translate for a person, not for a file:
+plain words, short sentences, the way it would be explained out loud.
+
+Rules:
+- Keep every number, rupee amount, age and year EXACTLY as written.
+- Keep scheme names, and the names of documents like Aadhaar and Jan Dhan, in
+  their familiar form -- transliterate rather than inventing a translation.
+- Do not add, remove, soften or explain anything. These are the clauses a
+  decision was based on, and a helpful embellishment here becomes a promise the
+  government never made.
+- Return exactly {count} translations, in the same order.
+
+LINES:
+{lines}
+"""
+
+
+def translate(strings: list[str], language: str) -> list[str]:
+    """
+    Translate display strings into the caller's language.
+
+    Cached on content, so the catalogue costs one call per language for the
+    whole demo and nothing thereafter.
+
+    Falls back to the original English on any failure. A scheme card in the
+    wrong language is a poor experience; a scheme card that fails to render
+    because a translation call timed out is a broken product.
+    """
+    if not strings or language == "en":
+        return strings
+
+    numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(strings))
+    schema = {
+        "type": "object",
+        "properties": {
+            "translations": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["translations"],
+    }
+
+    try:
+        raw = _generate(
+            TRANSLATE_PROMPT.format(
+                language=LANGUAGE_NAMES.get(language, "Hindi"),
+                count=len(strings),
+                lines=numbered,
+            ),
+            kind="translate",
+            schema=schema,
+        )
+        out = json.loads(raw)["translations"]
+    except (LLMError, json.JSONDecodeError, KeyError, TypeError):
+        return strings
+
+    # A short reply would silently shift every label onto the wrong card.
+    if len(out) != len(strings):
+        return strings
+
+    return [t or original for t, original in zip(out, strings)]

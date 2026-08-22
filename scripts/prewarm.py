@@ -126,6 +126,43 @@ def warm_pipeline() -> tuple[int, int]:
     return done, failed
 
 
+def warm_cards() -> tuple[int, int]:
+    """
+    Translate the whole scheme catalogue into each language, once.
+
+    The card text is translated on demand and cached, so the FIRST caller in a
+    language pays for the entire catalogue mid-conversation. Warming it here
+    moves that cost off the demo.
+    """
+    from setu.rules import load_schemes
+
+    strings = []
+    for scheme in load_schemes()["schemes"]:
+        strings.append(scheme["benefit_summary"])
+        for rule in scheme["rules"]:
+            strings.append(rule["description"])
+            strings.append(rule["source_quote"])
+            if rule.get("remedy"):
+                strings.append(rule["remedy"]["action"])
+                strings.append(rule["remedy"]["where"])
+
+    strings = list(dict.fromkeys(strings))
+    done = failed = 0
+    for language in CONVERSATIONS:
+        if language == "en":
+            continue
+        try:
+            out = llm.translate(strings, language)
+            ok = out != strings
+            print(f"  [{language}] {len(strings)} strings {'translated' if ok else 'UNCHANGED'}")
+            done += 1 if ok else 0
+            failed += 0 if ok else 1
+        except Exception as exc:
+            print(f"  [{language}] FAILED {type(exc).__name__}: {str(exc)[:60]}")
+            failed += 1
+    return done, failed
+
+
 def warm_static() -> tuple[int, int]:
     done = failed = 0
     for language, lines in STATIC.items():
@@ -177,6 +214,9 @@ def main() -> int:
     print("Pipeline (extract -> rules -> narrate -> speak)")
     pipeline_done, pipeline_failed = warm_pipeline()
 
+    print("\nScheme catalogue translation")
+    cards_done, cards_failed = warm_cards()
+
     print("\nStatic interface lines")
     static_done, static_failed = warm_static()
 
@@ -193,8 +233,9 @@ def main() -> int:
         print("  SOME SENTENCES ARE NOT CACHED -- see misses above")
         return 1
 
-    if pipeline_failed or static_failed:
-        print(f"\n{pipeline_failed + static_failed} warm-ups failed; fix before demoing")
+    if pipeline_failed or static_failed or cards_failed:
+        print(f"\n{pipeline_failed + static_failed + cards_failed} warm-ups failed; "
+              "fix before demoing")
         return 1
 
     print("\nFallback if the network dies mid-demo:")

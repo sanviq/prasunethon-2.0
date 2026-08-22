@@ -21,6 +21,9 @@ from setu.api import app
 def client(monkeypatch):
     monkeypatch.setattr(llm, "narrate", lambda *a, **k: "aap e-Shram ke liye patra hain.")
     monkeypatch.setattr(voice, "speak", lambda text, lang="hi": voice.CACHE_DIR / "stub.mp3")
+    # Card translation is a network call. Without this the suite spends 40s
+    # translating the catalogue on every non-English test.
+    monkeypatch.setattr(llm, "translate", lambda strings, lang: strings)
     api.SESSIONS.clear()
     return TestClient(app)
 
@@ -359,3 +362,78 @@ def test_eval_endpoint_serves_live_numbers(client):
 
 def test_console_is_served(client):
     assert client.get("/console.html").status_code == 200
+
+
+# --------------------------------------------------------------------------
+# Localised cards
+# --------------------------------------------------------------------------
+
+def test_cards_are_translated_into_the_conversation_language(client, monkeypatch):
+    """
+    The conversation was in Hindi while every scheme card underneath it stayed
+    in English -- which is the half of the product a low-literacy caller can
+    least afford to have in the wrong language.
+    """
+    monkeypatch.setattr(llm, "translate", lambda strings, lang: [f"[{lang}] {s}" for s in strings])
+    _extract_returns(monkeypatch, age=65, documents=["aadhaar", "bank_account"])
+
+    body = client.post("/ask/text", data={"text": "kuch bhi", "language": "hi"}).json()
+    card = next(c for c in body["schemes"] if c["failed"])
+
+    assert card["benefit"].startswith("[hi]")
+    assert card["failed"][0]["quote"].startswith("[hi]")
+
+
+def test_the_original_government_wording_survives_translation(client, monkeypatch):
+    """
+    A translated clause reads better but is no longer what the government
+    published. The "Why?" panel is an audit trail, and a citation you have
+    quietly paraphrased is not a citation -- so both ship.
+    """
+    monkeypatch.setattr(llm, "translate", lambda strings, lang: [f"[{lang}] {s}" for s in strings])
+    _extract_returns(monkeypatch, age=65, documents=["aadhaar", "bank_account"])
+
+    body = client.post("/ask/text", data={"text": "kuch bhi", "language": "hi"}).json()
+    citation = next(c for card in body["schemes"] for c in card["failed"])
+
+    assert citation["quote_en"], "the English original was thrown away"
+    assert not citation["quote_en"].startswith("[hi]")
+
+
+def test_english_callers_are_not_sent_through_translation(client, monkeypatch):
+    def should_not_run(strings, lang):
+        raise AssertionError("translated an English response")
+
+    monkeypatch.setattr(llm, "translate", should_not_run)
+    _extract_returns(monkeypatch, age=30, documents=["aadhaar"])
+    assert client.post("/ask/text", data={"text": "hi", "language": "en"}).status_code == 200
+
+
+def test_a_translation_failure_does_not_break_the_cards(monkeypatch):
+    """Wrong language beats a page that fails to render."""
+    monkeypatch.setattr(llm, "_generate", lambda *a, **k: (_ for _ in ()).throw(llm.LLMError("down")))
+    assert llm.translate(["Rs 10,000 loan"], "hi") == ["Rs 10,000 loan"]
+
+
+def test_a_short_translation_is_rejected_rather_than_misaligned(monkeypatch):
+    """One missing line would shift every label onto the wrong card."""
+    import json as _json
+    monkeypatch.setattr(llm, "_generate",
+                        lambda *a, **k: _json.dumps({"translations": ["only one"]}))
+    assert llm.translate(["a", "b", "c"], "hi") == ["a", "b", "c"]
+
+
+def test_the_same_clause_is_not_cited_twice(client, monkeypatch):
+    """
+    Age bands are two rules -- a minimum and a maximum -- quoting one sentence.
+    Showing it twice in a row looked like a rendering bug and doubled the
+    translation payload for nothing.
+    """
+    _extract_returns(monkeypatch, age=30, documents=["aadhaar", "bank_account"],
+                     is_epfo_esic_member=False, is_income_tax_payer=False)
+    body = client.post("/ask/text", data={"text": "kuch bhi"}).json()
+
+    for card in body["schemes"]:
+        for group in ("passed", "failed", "unknown"):
+            quotes = [c["quote"] for c in card[group]]
+            assert len(quotes) == len(set(quotes)), f"{card['id']} repeats a clause"

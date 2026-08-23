@@ -9,23 +9,26 @@ re-synthesising a sentence we already have is a needless risk on stage. Set
 SETU_VOICE_MODE=offline to refuse any network call and serve cache only -- run
 the live demo that way.
 
-Whisper size defaults to `medium`, chosen by listening to the output on the
-same clip rather than guessing at the speed/accuracy trade:
+Whisper size defaults to `small`, measured on the same clip rather than guessed:
 
-    small  beam=1   2.6s   "मेरी उम्रती साल है"    <- the age is unrecoverable
-    small  beam=5   3.1s   "मेरी उम्रती साल है"    <- beam search does not save it
-    medium beam=1   9.4s   "मेरी अम्र 30 साल है"   <- gets it, as a digit
+    base    2.5s   transcribes Hindi speech into Urdu script -- unusable
+    small   4.9s   "मैं मुमबाई में सबजी बेजती हूँ मेरी उम्र चोथटीस साल है"
+    medium 14.4s   clean Devanagari, correct spelling throughout
 
-Small never recovers the number at any beam width, and a garbled age means Setu
-asks "how old are you?" immediately after she said it -- which reads as broken
-to everyone watching and costs a whole extra turn, longer than the seconds
-saved. So: accuracy, and buy the time back from cpu_threads instead.
+`medium` was the default until a real phone test over a tunnel took 70 seconds
+to answer one sentence. Fourteen seconds of that is this line, and a caller
+watching a spinner for that long has already decided the thing is broken.
 
-ASR is ~90% of turn latency; everything downstream is ~1.3s of extraction and
-milliseconds of rules. If a turn feels slow, this is the only knob that matters.
+The reason `medium` was chosen originally no longer holds. It was picked because
+`small` garbled spoken ages past recovery -- and it does still garble them:
+"चोथटीस" is not how anyone writes 34. But extraction now reads that transcript and
+returns age 34, occupation street_vendor, state Maharashtra, documents [aadhaar],
+every field correct. The model downstream is doing work the ASR used to have to
+do alone, so the accuracy that `medium` was buying is no longer for sale here.
 
-Drop to SETU_WHISPER_SIZE=small if the machine struggles; the conversation
-layer handles a missed fact gracefully, it just costs a turn.
+ASR is still ~70% of turn latency; everything downstream is ~1.7s of extraction
+and milliseconds of rules. If a turn feels slow, this is the first knob to reach
+for -- SETU_WHISPER_SIZE=medium if a machine can spare the time, never `base`.
 
 Deliberately not Bhashini: it needs institutional approval we do not have. The
 adapter shape below means adding it later is one function, not a rewrite.
@@ -43,7 +46,7 @@ from pathlib import Path
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "voice_cache"
 VOICE_MODE = os.getenv("SETU_VOICE_MODE", "auto")  # auto | offline
-WHISPER_SIZE = os.getenv("SETU_WHISPER_SIZE", "medium")
+WHISPER_SIZE = os.getenv("SETU_WHISPER_SIZE", "small")
 
 # edge-tts neural voices, one per supported language. Male by default: the demo
 # persona is a man, and a mismatched voice is a small thing that quietly

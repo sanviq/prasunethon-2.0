@@ -1,3 +1,13 @@
+---
+title: Setu
+emoji: 🌉
+colorFrom: green
+colorTo: gray
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Setu — voice-first government scheme discovery
 
 **Setu walks an informal-sector worker from what they said, in their own

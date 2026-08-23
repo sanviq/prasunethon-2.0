@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Setu — technical documentation. Voice-first government scheme discovery for informal-sector workers.">
+<title>Setu — Technical Documentation</title>
+
+<style>
+/* ---------- tokens: light is the base, both dark states redefine ---------- */
+:root {
+  --ground:      #F6F7F4;
+  --surface:     #FFFFFF;
+  --surface-alt: #EEF1EC;
+  --ink:         #171C1A;
+  --ink-soft:    #3D4744;
+  --muted:       #66726D;
+  --rule:        #D8DED8;
+  --rule-strong: #B9C2BC;
+
+  --accent:      #0E6B54;
+  --accent-soft: #E2EFE9;
+  --accent-ink:  #0A4C3C;
+
+  --amber:       #8A5A0B;
+  --amber-soft:  #F5EBD8;
+  --rust:        #8E3328;
+  --rust-soft:   #F6E3DF;
+
+  --shadow: 0 1px 2px rgba(23,28,26,.05), 0 8px 24px -16px rgba(23,28,26,.18);
+
+  --display: "Iowan Old Style", "Charter", "Palatino Linotype", Palatino, Georgia, serif;
+  --body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+
+  --measure: 67ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #0F1311;
+    --surface:     #161C19;
+    --surface-alt: #1D2421;
+    --ink:         #E7ECE8;
+    --ink-soft:    #C3CCC7;
+    --muted:       #8A9791;
+    --rule:        #2A322E;
+    --rule-strong: #3C4641;
+
+    --accent:      #52C09A;
+    --accent-soft: #16302A;
+    --accent-ink:  #8CD8BB;
+
+    --amber:       #D9A752;
+    --amber-soft:  #322816;
+    --rust:        #E08476;
+    --rust-soft:   #331E1A;
+
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:      #0F1311;
+  --surface:     #161C19;
+  --surface-alt: #1D2421;
+  --ink:         #E7ECE8;
+  --ink-soft:    #C3CCC7;
+  --muted:       #8A9791;
+  --rule:        #2A322E;
+  --rule-strong: #3C4641;
+
+  --accent:      #52C09A;
+  --accent-soft: #16302A;
+  --accent-ink:  #8CD8BB;
+
+  --amber:       #D9A752;
+  --amber-soft:  #322816;
+  --rust:        #E08476;
+  --rust-soft:   #331E1A;
+
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+}
+
+/* ---------- base ---------- */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent-ink); text-decoration-color: var(--rule-strong); text-underline-offset: 2px; }
+a:hover { text-decoration-color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+code, pre, .mono { font-family: var(--mono); font-variant-ligatures: none; }
+
+/* ---------- shell: reading column + sticky rail ---------- */
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 28px 120px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 56px;
+}
+
+.rail { display: none; }
+
+@media (min-width: 1040px) {
+  .shell { grid-template-columns: 196px minmax(0, 1fr); }
+  .rail { display: block; }
+}
+
+.rail-inner {
+  position: sticky;
+  top: 40px;
+  padding-top: 8px;
+  border-top: 2px solid var(--ink);
+}
+
+.rail-title {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 10px 0 14px;
+}
+
+.rail a {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 5px 0 5px 11px;
+  border-left: 2px solid var(--rule);
+  margin-left: -2px;
+}
+.rail a:hover { color: var(--ink); border-left-color: var(--accent); }
+
+/* ---------- masthead ---------- */
+.masthead { padding: 72px 0 0; border-bottom: 2px solid var(--ink); }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  margin: 0 0 22px;
+}
+
+h1 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(40px, 6.2vw, 62px);
+  line-height: 1.02;
+  letter-spacing: -.022em;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+
+.standfirst {
+  font-family: var(--display);
+  font-size: clamp(19px, 2.2vw, 22.5px);
+  line-height: 1.48;
+  color: var(--ink-soft);
+  max-width: 34em;
+  margin: 0 0 40px;
+  text-wrap: pretty;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border-top: 1px solid var(--rule);
+  margin-bottom: 0;
+}
+
+.fact {
+  flex: 1 1 128px;
+  padding: 16px 20px 18px 0;
+  border-right: 1px solid var(--rule);
+}
+.fact:last-child { border-right: 0; }
+
+.fact dt {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.fact dd {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  font-variant-numeric: tabular-nums;
+}
+.fact dd small {
+  display: block;
+  font-family: var(--body);
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+/* ---------- sections ---------- */
+section { padding-top: 62px; scroll-margin-top: 24px; }
+
+h2 {
+  font-family: var(--display);
+  font-size: clamp(26px, 3.2vw, 33px);
+  font-weight: 600;
+  line-height: 1.16;
+  letter-spacing: -.017em;
+  margin: 0 0 6px;
+  max-width: 22em;
+  text-wrap: balance;
+}
+
+h3 {
+  font-family: var(--body);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -.005em;
+  margin: 34px 0 8px;
+  max-width: var(--measure);
+}
+
+.kicker {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 14px;
+}
+
+p { max-width: var(--measure); margin: 0 0 17px; text-wrap: pretty; }
+p.lede { font-size: 19px; line-height: 1.55; color: var(--ink-soft); }
+
+ul, ol { max-width: var(--measure); padding-left: 20px; margin: 0 0 17px; }
+li { margin-bottom: 8px; }
+li::marker { color: var(--muted); }
+
+strong { font-weight: 650; }
+
+em.term {
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: .89em;
+  background: var(--surface-alt);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--ink-soft);
+}
+
+/* ---------- pull statement ---------- */
+.statement {
+  border-left: 3px solid var(--accent);
+  padding: 4px 0 4px 24px;
+  margin: 30px 0 30px;
+  max-width: var(--measure);
+}
+.statement p {
+  font-family: var(--display);
+  font-size: clamp(21px, 2.5vw, 25px);
+  line-height: 1.34;
+  letter-spacing: -.012em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+/* ---------- specimen: breaks the measure, own surface ---------- */
+.specimen {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+  margin: 26px 0 30px;
+  overflow: hidden;
+}
+
+.specimen-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface-alt);
+}
+.specimen-head h4 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.specimen-head span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.specimen-body { padding: 20px; overflow-x: auto; }
+.specimen-body > p:last-child { margin-bottom: 0; }
+
+.specimen-note {
+  padding: 13px 20px;
+  border-top: 1px solid var(--rule);
+  background: var(--surface-alt);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.specimen-note p { max-width: 74ch; margin: 0; }
+
+pre {
+  margin: 0;
+  font-size: 12.8px;
+  line-height: 1.62;
+  white-space: pre;
+  color: var(--ink-soft);
+}
+pre b { color: var(--ink); font-weight: 650; }
+pre i { font-style: normal; color: var(--muted); }
+pre u { text-decoration: none; color: var(--accent-ink); }
+
+/* ---------- pipeline ---------- */
+.pipe { display: flex; flex-direction: column; gap: 0; min-width: 480px; }
+
+.stage {
+  display: grid;
+  grid-template-columns: 108px 1fr;
+  align-items: center;
+  gap: 18px;
+  padding: 11px 0;
+  position: relative;
+}
+
+.stage-owner {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  text-align: right;
+  color: var(--muted);
+}
+
+.stage-box {
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  background: var(--surface-alt);
+  padding: 10px 15px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.stage-box b {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+.stage-box span { font-size: 13px; color: var(--muted); }
+
+.stage.decides .stage-box {
+  border: 2px solid var(--accent);
+  background: var(--accent-soft);
+}
+.stage.decides .stage-box b { color: var(--accent-ink); }
+.stage.decides .stage-box span { color: var(--accent-ink); }
+.stage.decides .stage-owner { color: var(--accent-ink); font-weight: 600; }
+
+.stage.model .stage-box { border-style: dashed; }
+
+.connector {
+  grid-column: 2;
+  height: 14px;
+  border-left: 1px solid var(--rule-strong);
+  margin-left: 22px;
+}
+
+.pipe-legend {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font-size: 13px;
+  color: var(--muted);
+}
+.pipe-legend b { color: var(--ink-soft); font-weight: 600; }
+
+/* ---------- verdicts ---------- */
+.verdicts { display: grid; gap: 12px; margin: 24px 0 8px; max-width: 780px; }
+@media (min-width: 700px) { .verdicts { grid-template-columns: repeat(3, 1fr); } }
+
+.verdict {
+  border: 1px solid var(--rule);
+  border-top-width: 3px;
+  border-radius: 4px;
+  background: var(--surface);
+  padding: 15px 16px 17px;
+}
+.verdict .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  margin-bottom: 9px;
+}
+.verdict .glyph {
+  width: 15px; height: 15px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+.verdict p { font-size: 14px; line-height: 1.5; margin: 0; color: var(--ink-soft); max-width: none; }
+
+.v-yes { border-top-color: var(--accent); }
+.v-yes .tag { color: var(--accent-ink); }
+.v-yes .glyph { background: var(--accent); color: var(--surface); }
+
+.v-no { border-top-color: var(--rust); }
+.v-no .tag { color: var(--rust); }
+.v-no .glyph { background: var(--rust); color: var(--surface); }
+
+.v-info { border-top-color: var(--amber); }
+.v-info .tag { color: var(--amber); }
+.v-info .glyph { background: var(--amber); color: var(--surface); }
+
+/* ---------- tables ---------- */
+.tablewrap { overflow-x: auto; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 520px;
+  font-size: 14px;
+}
+th, td {
+  text-align: left;
+  padding: 9px 14px 9px 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: baseline;
+}
+th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+  border-bottom: 1px solid var(--rule-strong);
+  white-space: nowrap;
+}
+td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; padding-right: 22px; }
+tr:last-child td { border-bottom: 0; }
+td.scheme { font-weight: 600; }
+tbody.total td { border-top: 1px solid var(--rule-strong); font-weight: 650; }
+
+.perfect { color: var(--accent-ink); }
+
+/* ---------- ladder ---------- */
+.rungs { list-style: none; padding: 0; margin: 0; max-width: none; }
+.rung {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 14px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.rung:last-child { border-bottom: 0; padding-bottom: 0; }
+.rung-n {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  padding-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.rung-action { font-weight: 600; font-size: 15px; line-height: 1.4; margin-bottom: 4px; }
+.rung-meta {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  font-family: var(--mono); font-size: 12.5px; color: var(--muted);
+}
+.rung-meta u { text-decoration: none; color: var(--accent-ink); font-weight: 600; }
+
+/* ---------- callout ---------- */
+.callout {
+  border: 1px solid var(--rule-strong);
+  border-left: 3px solid var(--amber);
+  border-radius: 4px;
+  background: var(--surface);
+  padding: 16px 20px;
+  margin: 26px 0;
+  max-width: 78ch;
+}
+.callout .kicker { color: var(--amber); margin-bottom: 8px; }
+.callout p { font-size: 15px; line-height: 1.55; max-width: none; }
+.callout p:last-child { margin-bottom: 0; }
+
+/* ---------- footer ---------- */
+footer {
+  margin-top: 76px;
+  padding-top: 24px;
+  border-top: 2px solid var(--ink);
+  font-size: 13.5px;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+footer p { margin: 0; max-width: 46ch; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+
+
+<div class="shell">
+
+  <nav class="rail" aria-label="Contents">
+    <div class="rail-inner">
+      <p class="rail-title">Contents</p>
+      <a href="#commitment">The commitment</a>
+      <a href="#verdict">Three verdicts</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#rule">Anatomy of a rule</a>
+      <a href="#ladder">The Ladder</a>
+      <a href="#citations">Citations</a>
+      <a href="#language">Language</a>
+      <a href="#eval">Evaluation</a>
+      <a href="#cost">Cost &amp; latency</a>
+      <a href="#failure">Failure modes</a>
+      <a href="#unbuilt">Not yet built</a>
+      <a href="#repo">Repository</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <header class="masthead">
+      <p class="eyebrow">Setu · Technical documentation · Prasunethon 2.0</p>
+      <h1>The LLM translates.<br>A rule engine decides.</h1>
+      <p class="standfirst">Setu takes a sentence spoken by an informal-sector worker in their own
+        language and returns the government schemes they qualify for — plus, when they don't, the
+        cheapest ordered route to qualifying, costed in rupees and days.</p>
+
+      <dl class="facts">
+        <div class="fact"><dt>Catalogue</dt><dd>8<small>schemes, 39 typed rules</small></dd></div>
+        <div class="fact"><dt>Decision layer</dt><dd>0<small>LLM calls in a verdict</small></dd></div>
+        <div class="fact"><dt>Eval</dt><dd>424<small>labelled decisions</small></dd></div>
+        <div class="fact"><dt>Tests</dt><dd>104<small>all passing</small></dd></div>
+        <div class="fact"><dt>Per match</dt><dd>2<small>model calls, ~$0.001</small></dd></div>
+      </dl>
+    </header>
+
+    <section id="problem">
+      <p class="kicker">The problem</p>
+      <h2>The barrier is not eligibility. It is discovery.</h2>
+      <p class="lede">15% of Indian adults access formal credit against a 24% global average. 89% hold a
+        bank account, and 16% of those accounts sit inactive. Just 14% of 63 million MSMEs — employing
+        90% of the workforce — have formal credit access, against a ₹25 lakh crore gap.</p>
+      <p>Most of the people on the wrong side of those numbers already qualify for something. What
+        stands between them and it is a discovery process that assumes literacy, English, and a
+        smartphone. Setu removes all three assumptions: you speak one sentence, in your language, and
+        the system does the rest — over a browser today, over a missed call in the design for the next
+        stage.</p>
+    </section>
+
+    <section id="commitment">
+      <p class="kicker">The architectural commitment</p>
+      <h2>Everything else in this document follows from one decision</h2>
+
+      <div class="statement">
+        <p>The model's job is narrow: turn speech into structured JSON, and turn the engine's output
+          into a plain spoken sentence. It never decides eligibility.</p>
+      </div>
+
+      <p>That constraint is not caution for its own sake. Four properties this system needs are only
+        available on the far side of it:</p>
+
+      <ul>
+        <li><strong>No hallucination surface on the verdict.</strong> The decision is Python over typed
+          predicates. There is no temperature on it, no prompt to regress, and no version of the model
+          that changes who qualifies.</li>
+        <li><strong>The Ladder can exist at all.</strong> Counterfactual search requires rules you can
+          invert one at a time and re-evaluate. You can invert a predicate; you cannot invert a
+          judgement.</li>
+        <li><strong>Every answer is citable</strong>, because each rule carries the government sentence
+          it was transcribed from.</li>
+        <li><strong>Marginal cost stays near zero.</strong> One ASR pass and one extraction per turn.
+          Everything downstream is deterministic Python, so a thousand more schemes cost nothing per
+          query.</li>
+      </ul>
+    </section>
+
+    <section id="verdict">
+      <p class="kicker">Three-valued logic</p>
+      <h2>A missing fact is never a failure</h2>
+      <p>A two-valued engine has to answer <em class="term">no</em> when it doesn't know. That single
+        default is the behaviour this product exists to replace, so the verdict type has three
+        members rather than two.</p>
+
+      <div class="verdicts">
+        <div class="verdict v-yes">
+          <div class="tag"><span class="glyph" aria-hidden="true">✓</span>ELIGIBLE</div>
+          <p>Every gating rule passed on facts we actually hold.</p>
+        </div>
+        <div class="verdict v-no">
+          <div class="tag"><span class="glyph" aria-hidden="true">✕</span>NOT_ELIGIBLE</div>
+          <p>A gating rule failed on a fact the caller stated. This is the only path to a "no".</p>
+        </div>
+        <div class="verdict v-info">
+          <div class="tag"><span class="glyph" aria-hidden="true">?</span>NEED_INFO</div>
+          <p>Nothing failed, but a fact we need is missing. It is a question to ask, not a rejection.</p>
+        </div>
+      </div>
+
+      <p style="margin-top:22px">Status is carried by an icon and a word as well as a colour, here and
+        in the app, so the distinction survives a monochrome screen or a colour-blind reader.</p>
+
+      <p>The distinction runs all the way down to individual documents. Holding no record of a bank
+        account and being told <em>"I don't have one"</em> are different states, so the profile carries
+        two lists — <em class="term">documents</em> and <em class="term">documents_denied</em> — and a
+        document rule returns three values against them. Subsumption is explicit too: a Jan Dhan
+        account satisfies any rule asking for a bank account, because it is one.</p>
+    </section>
+
+    <section id="pipeline">
+      <p class="kicker">Architecture</p>
+      <h2>Where the model is, and where it deliberately isn't</h2>
+
+      <div class="specimen">
+        <div class="specimen-head">
+          <h4>Request path — one turn</h4>
+          <span>Model at the edges, determinism in the middle</span>
+        </div>
+        <div class="specimen-body">
+          <div class="pipe">
+            <div class="stage">
+              <div class="stage-owner">browser</div>
+              <div class="stage-box"><b>MediaRecorder</b><span>opus / webm, PWA, no build step</span></div>
+            </div>
+            <div class="connector"></div>
+            <div class="stage">
+              <div class="stage-owner">local</div>
+              <div class="stage-box"><b>faster-whisper</b><span>medium · int8 · auto-detects language</span></div>
+            </div>
+            <div class="connector"></div>
+            <div class="stage model">
+              <div class="stage-owner">model</div>
+              <div class="stage-box"><b>extract_profile()</b><span>speech → typed JSON, temperature 0</span></div>
+            </div>
+            <div class="connector"></div>
+            <div class="stage decides">
+              <div class="stage-owner">decides</div>
+              <div class="stage-box"><b>rules.evaluate_all()</b><span>39 typed predicates, three-valued</span></div>
+            </div>
+            <div class="connector"></div>
+            <div class="stage decides">
+              <div class="stage-owner">decides</div>
+              <div class="stage-box"><b>ladder.best_paths()</b><span>counterfactual search, verified by replay</span></div>
+            </div>
+            <div class="connector"></div>
+            <div class="stage model">
+              <div class="stage-owner">model</div>
+              <div class="stage-box"><b>narrate() / choose_question()</b><span>verdict → one spoken sentence</span></div>
+            </div>
+            <div class="connector"></div>
+            <div class="stage">
+              <div class="stage-owner">local</div>
+              <div class="stage-box"><b>edge-tts</b><span>neural voice, no API key, no cost</span></div>
+            </div>
+          </div>
+          <div class="pipe-legend">
+            <span><b>Solid border</b> — deterministic</span>
+            <span><b>Dashed border</b> — model call</span>
+            <span><b>Green</b> — decides eligibility</span>
+          </div>
+        </div>
+        <div class="specimen-note">
+          <p>Both the ASR and LLM layers sit behind single-function adapters, so replacing a provider
+            is one function body, not a rewrite. That matters more than it sounds: the model in use
+            today was picked by measurement three days ago and the previous choice had already been
+            withdrawn for new API keys.</p>
+        </div>
+      </div>
+
+      <h3>The model layer</h3>
+      <p>Gemini 3.5 Flash Lite on the free tier. Extraction runs at <em class="term">temperature=0</em>
+        against a <em class="term">responseSchema</em>, so the JSON reaching the engine is structurally
+        guaranteed rather than hoped for. <em class="term">eval/pick_model.py</em> timed the candidates
+        against the same prompt: this one matched the accuracy of larger models at 1.3s against 10.3s.</p>
+      <p>The single most important line in the extraction prompt instructs the model to leave unstated
+        fields <em class="term">null</em>. A guessed age becomes a wrong verdict the person never gets
+        to contest, so silence must never be allowed to become a fact.</p>
+    </section>
+
+    <section id="rule">
+      <p class="kicker">Data model</p>
+      <h2>The catalogue is the product; the code is the machinery</h2>
+      <p>Adding a scheme means adding JSON, not writing Python. Every rule carries four things beyond
+        its predicate, and <em class="term">tests/test_rules.py</em> validates all four on every rule —
+        so a typo fails the test suite rather than a live demo.</p>
+
+      <div class="specimen">
+        <div class="specimen-head">
+          <h4>data/schemes.json — one rule, verbatim</h4>
+          <span>PM SVANidhi · rule 4 of 6</span>
+        </div>
+        <div class="specimen-body">
+<pre>{
+  "id": "svanidhi_has_bank_account",
+  "description": "A bank account is required to receive the loan",
+
+  <i>// the predicate — this is the entire decision</i>
+  <b>"field"</b>: "documents",
+  <b>"op"</b>: "contains_any",
+  <b>"value"</b>: ["bank_account", "jan_dhan_account"],
+  <b>"gating"</b>: true,
+
+  <i>// the citation the "Why?" panel shows</i>
+  <b>"source_doc"</b>: "PM SVANidhi Scheme Guidelines",
+  <b>"source_url"</b>: "https://pmsvanidhi.mohua.gov.in/",
+  <b>"source_quote"</b>: "The loan is open to Indian citizens aged 18 years
+     or above with a bank account linked to an Aadhaar-verified mobile
+     number. Loan proceeds and the 7% interest subsidy are credited
+     directly to that account.",
+
+  <i>// how a failure gets fixed — the Ladder can only offer what is here</i>
+  <b>"remedy"</b>: {
+    "action": "Open a zero-balance Jan Dhan account using your Aadhaar",
+    "where":  "Any public sector bank branch or Bank Mitra",
+    <u>"cost_rupees": 0</u>,
+    <u>"days": 3</u>,
+    "grants": { "field": "documents", "value": "jan_dhan_account" }
+  },
+
+  <i>// remedies that must be completed first</i>
+  <b>"depends_on"</b>: ["svanidhi_has_aadhaar"]
+}</pre>
+        </div>
+        <div class="specimen-note">
+          <p><strong>13 of the 39 rules carry a remedy; 26 carry <em class="term">null</em>.</strong>
+            Age and income ceilings deliberately have none. You cannot act your way out of being 43,
+            and a ladder that pretends otherwise sends someone to an office to be turned away — a day
+            of lost wages and a bus fare, spent on our optimism.</p>
+        </div>
+      </div>
+
+      <h3>Derived fields</h3>
+      <p>People answer in the units they think in, which are rarely the units a scheme is written in.
+        Three fields are computed rather than asked: <em class="term">monthly_income_est</em> from
+        daily earnings at 26 working days, <em class="term">annual_turnover</em>, and
+        <em class="term">vending_since_year_est</em> from age and the age they started working —
+        because almost nobody remembers the calendar year they began, and everybody remembers being
+        fifteen. That inference is arithmetic in the engine, never a model guess.</p>
+    </section>
+
+    <section id="ladder">
+      <p class="kicker">The Ladder</p>
+      <h2>Not qualifying is a position, not a verdict</h2>
+      <p>When a scheme fails on remediable rules, Setu searches the counterfactual space: invert each
+        failing rule via its remedy, re-evaluate, and keep the routes that land on ELIGIBLE. Paths are
+        ordered by dependency, costed in rupees and days, and grouped by their first step — because
+        one action usually unlocks several schemes at once, and the caller needs one thing to do
+        tomorrow morning, not five.</p>
+
+      <div class="specimen">
+        <div class="specimen-head">
+          <h4>Live engine output</h4>
+          <span>Street vendor, 34, Maharashtra · ₹400/day · holds Aadhaar · no bank account</span>
+        </div>
+        <div class="specimen-body">
+          <ol class="rungs">
+            <li class="rung">
+              <div class="rung-n">01</div>
+              <div>
+                <div class="rung-action">Open a zero-balance Jan Dhan account using your Aadhaar</div>
+                <div class="rung-meta">
+                  <span>Any public sector bank branch or Bank Mitra</span>
+                  <span>₹0</span>
+                  <span>3 days</span>
+                  <u>unlocks ₹5,46,000 across 5 schemes</u>
+                </div>
+              </div>
+            </li>
+          </ol>
+        </div>
+        <div class="specimen-note">
+          <p>Five schemes — PMJJBY, PMSBY, Atal Pension, MUDRA Shishu and PM-SYM — were each
+            NOT_ELIGIBLE on the same rule. The search collapses them into one errand. The rung is
+            ordered after Aadhaar via <em class="term">depends_on</em>, because you cannot open the
+            account without it.</p>
+        </div>
+      </div>
+
+      <h3>Every path is replayed before it is shown</h3>
+      <p><em class="term">verify_path()</em> walks the ladder on a copy of the profile and confirms it
+        genuinely lands on ELIGIBLE. Paths that don't are discarded rather than displayed. A route
+        that doesn't actually work is worse than admitting there is none, because the person spends
+        real days finding that out.</p>
+
+      <div class="callout">
+        <p class="kicker">A consequence worth stating</p>
+        <p>Strict verification means a scheme <strong>disappears from the Ladder while any of its rules
+          is still NEED_INFO</strong> — the replay can't prove a route lands on eligible when a fact is
+          unknown. In the run above, PM SVANidhi is absent for exactly this reason: the vending-proof
+          rule hasn't been answered yet.</p>
+        <p>This is the correct behaviour and not a gap being papered over. The missing fact is surfaced
+          to the narrator as <em class="term">documents:vending_certificate</em>, so the conversation
+          asks about it, and the path appears once it's answered. The alternative — showing a route
+          under an unverified assumption — is the failure mode the verification exists to prevent.</p>
+      </div>
+    </section>
+
+    <section id="citations">
+      <p class="kicker">Auditability</p>
+      <h2>Every verdict points at the sentence it came from</h2>
+      <p>Tapping <em>"Why?"</em> shows the document, the URL, and the quoted government sentence behind
+        each rule that fired. Users and auditors verify decisions instead of trusting them — and since
+        the engine is a lookup over those rules, the citation is the actual cause of the verdict, not a
+        justification assembled afterwards.</p>
+      <p>An earlier version of the catalogue cited page numbers. They were not verifiable against the
+        published documents, so they were replaced with URLs and quotes checked against the source.
+        Doing that check turned up four real eligibility rules that had been missing from the
+        catalogue entirely — which is the argument for citations in one line: the discipline of having
+        to cite is what caught the errors.</p>
+    </section>
+
+    <section id="language">
+      <p class="kicker">Language</p>
+      <h2>Three offered, eight supported</h2>
+      <p>The app offers <strong>Hindi, Marathi and English</strong>. Whisper auto-detects the spoken
+        language; edge-tts answers in it with a neural voice, at no cost and with no API key.</p>
+      <p>The voice layer carries five more — Kannada, Tamil, Telugu, Bengali, Gujarati — and the
+        pipeline is language-agnostic throughout. The picker is deliberately shorter than the
+        capability: those five have not been tested end to end with real speakers, and a language that
+        half-works in front of a user is worse than one that isn't offered. They are there for the IVR
+        stage, where the missed-call funnel needs them.</p>
+
+      <h3>Scheme cards translate; citations keep their original</h3>
+      <p>A Hindi conversation that hands back an English scheme card has solved nothing, so benefit
+        text, rule descriptions and clause quotes are all translated — one batched, cached call per
+        response rather than one per string.</p>
+      <p>The government's exact published sentence is kept alongside the translation and labelled as
+        the original, rather than replaced by it. A translated clause reads better, but it is no longer
+        what the government wrote, and a citation quietly paraphrased has stopped being a citation.</p>
+    </section>
+
+    <section id="eval">
+      <p class="kicker">Evaluation</p>
+      <h2>53 personas, labelled by hand from the published criteria</h2>
+      <p>43 complete profiles and 10 mid-conversation ones, scored against expectations written by
+        hand from the government documents — never from Setu's own output. An eval whose labels come
+        from the system under test measures nothing; it only proves the code is self-consistent.</p>
+
+      <div class="specimen">
+        <div class="specimen-head">
+          <h4>eval/run.py</h4>
+          <span>43 personas × 8 schemes = 344 decisions</span>
+        </div>
+        <div class="specimen-body">
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Scheme</th>
+                  <th class="num">Precision</th>
+                  <th class="num">Recall</th>
+                  <th class="num">F1</th>
+                  <th class="num">TP</th>
+                  <th class="num">FP</th>
+                  <th class="num">FN</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="scheme">PM SVANidhi</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num">6</td><td class="num">0</td><td class="num">0</td></tr>
+                <tr><td class="scheme">PM-SYM</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num">18</td><td class="num">0</td><td class="num">0</td></tr>
+                <tr><td class="scheme">e-Shram</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num">29</td><td class="num">0</td><td class="num">0</td></tr>
+                <tr><td class="scheme">PMJJBY</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num">31</td><td class="num">0</td><td class="num">0</td></tr>
+                <tr><td class="scheme">PMSBY</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num">38</td><td class="num">0</td><td class="num">0</td></tr>
+                <tr><td class="scheme">PM Vishwakarma</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num">8</td><td class="num">0</td><td class="num">0</td></tr>
+                <tr><td class="scheme">Atal Pension</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num">23</td><td class="num">0</td><td class="num">0</td></tr>
+                <tr><td class="scheme">MUDRA Shishu</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num">39</td><td class="num">0</td><td class="num">0</td></tr>
+              </tbody>
+              <tbody class="total">
+                <tr><td class="scheme">Micro average</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num perfect">1.000</td><td class="num">192</td><td class="num">0</td><td class="num">0</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="margin-top:16px; font-size:14px; color:var(--muted); max-width:70ch">
+            NEED_INFO was returned 23 times and is never counted as a prediction of eligibility.<br>
+            <strong style="color:var(--ink-soft)">10 partial profiles × 8 schemes = 80 decisions ·
+            false rejections on missing facts: 0/80 (0.0%)</strong>
+          </p>
+        </div>
+        <div class="specimen-note">
+          <p><strong>A perfect score here is the expected result, not a boast.</strong> The decision
+            layer is a lookup over typed predicates; it has almost no error surface. What this eval
+            actually proves is that the catalogue was transcribed correctly from the source documents
+            — which is where the real risk lives. It is a test of the data, not a claim about a model.</p>
+        </div>
+      </div>
+
+      <h3>The number worth arguing about is the second one</h3>
+      <p>Precision and recall are measured on complete profiles. <strong>False rejections on partial
+        information</strong> are measured on people who have said one sentence — which is the state
+        they are actually in when the system first has to behave well.</p>
+      <p>The two failure modes cost different things. A false positive sends someone to a government
+        office to be turned away: a day of wages and a bus fare. A false negative silently withholds
+        money they were entitled to, and they never find out. The second is what this product exists
+        to fix, which is why NEED_INFO is a first-class verdict rather than a rounding error — and it
+        is measured separately for the same reason.</p>
+      <p>This eval caught a real bug: <em class="term">missing_fields()</em> had been inspecting only
+        NEED_INFO results, so an empty document list was reaching the engine as a failure rather than
+        an unknown. Every partial persona was being rejected for facts nobody had asked them for.</p>
+    </section>
+
+    <section id="cost">
+      <p class="kicker">Cost and latency</p>
+      <h2>Two model calls per turn, and neither is on the verdict</h2>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Stage</th><th>Where it runs</th><th>Cost</th><th class="num">Typical</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="scheme">ASR — faster-whisper medium</td><td>local CPU, int8</td><td>free</td><td class="num">1–3 s</td></tr>
+            <tr><td class="scheme">Extraction — Gemini</td><td>API, cached on content hash</td><td>~$0.0005</td><td class="num">1.3 s</td></tr>
+            <tr><td class="scheme">Rules + Ladder</td><td>local Python</td><td>free</td><td class="num">&lt; 10 ms</td></tr>
+            <tr><td class="scheme">Narration — Gemini</td><td>API, cached on content hash</td><td>~$0.0005</td><td class="num">1.3 s</td></tr>
+            <tr><td class="scheme">TTS — edge-tts</td><td>free service, no key, cached</td><td>free</td><td class="num">0.5–1 s</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p style="margin-top:20px">Both caches key on a content hash, so a repeated sentence costs
+        nothing and returns instantly. Scheme-card translation is one batched call per response and
+        per language, not one per string — the whole 80-string catalogue warms in a single call each
+        for Hindi and Marathi.</p>
+      <p>Adding schemes does not add cost. The extraction prompt doesn't grow with the catalogue and
+        the matching is local, so a hundred more schemes are still two model calls per turn.</p>
+    </section>
+
+    <section id="failure">
+      <p class="kicker">Operational design</p>
+      <h2>What breaks in a live demo, and what was built for it</h2>
+
+      <h3>Conference wifi</h3>
+      <p><em class="term">SETU_LLM_MODE=offline</em> and <em class="term">SETU_VOICE_MODE=offline</em>
+        make both adapters refuse network calls and serve only from cache.
+        <em class="term">scripts/prewarm.py</em> walks whole conversations through the live pipeline,
+        translates the full catalogue into each language, and then re-runs everything with the network
+        refused to verify the cache actually covers it. A warm cache that hasn't been checked in
+        offline mode is a cache you're guessing about.</p>
+
+      <h3>"Is it the mic, the model, or the rules?"</h3>
+      <p><em class="term">POST /ask/text</em> runs the identical pipeline from typed input — no
+        microphone, no HTTPS tunnel, no Whisper. When something breaks twenty minutes before a demo,
+        that endpoint isolates the layer in one curl.</p>
+
+      <h3>Free-tier rate limits</h3>
+      <p>15 requests per minute. Every call carries a three-attempt retry with linear backoff, because
+        a judge running the demo twice in a row is precisely the burst that would otherwise fail in
+        front of them.</p>
+
+      <h3>getUserMedia refuses plain HTTP</h3>
+      <p>The browser will not grant microphone access outside a secure context, which localhost
+        satisfies and a phone on the same LAN does not. The phone demo therefore runs behind
+        <em class="term">ngrok http 8000</em>. Audio playback is triggered by an explicit user gesture
+        rather than autoplay — Chrome not only blocks autoplay without one, it declines to load the
+        file at all, leaving a silent player with <em class="term">duration: NaN</em>.</p>
+    </section>
+
+    <section id="unbuilt">
+      <p class="kicker">Roadmap</p>
+      <h2>Designed and specified, not present in this repository</h2>
+      <p>Listed here because the architecture accommodates them — not because they ship today.</p>
+
+      <h3>Missed-call callback — the zero-cost funnel</h3>
+      <p>The channel that reaches the users who need Setu most: no smartphone, no data plan, no app, no
+        literacy. The user gives a missed call. Setu hangs up, calls back at its own cost, and runs the
+        same flow over IVR — language on the keypad, spoken question, spoken answer carrying the match
+        and the next step. It costs the user nothing, which is the whole point: every rupee of friction
+        at the top of the funnel removes exactly the people the scheme was written for.</p>
+      <p>What it needs and does not have here: a Twilio webhook to catch the inbound call and trigger
+        the callback, a keypad language menu, and an audio bridge between TTS output and the call leg.
+        The loop it sits on top of — ASR, extraction, rules, Ladder, TTS — is built and tested, and the
+        five extra voices are already in place for it.</p>
+
+      <h3>Others</h3>
+      <p>Retrieval over the full scheme corpus for free-form questions beyond the rule set; Document
+        Doctor, catching name mismatches before an application fails silently; Voice Ledger, producing
+        a bank-readable cash-flow statement from spoken daily takings.</p>
+    </section>
+
+    <section id="repo">
+      <p class="kicker">Repository</p>
+      <h2>Layout and how to run it</h2>
+
+      <div class="specimen">
+        <div class="specimen-head">
+          <h4>github.com/sanviq/prasunethon-2.0</h4>
+          <span>Python 3, FastAPI · no build step</span>
+        </div>
+        <div class="specimen-body">
+<pre><b>data/schemes.json</b>    <i>the catalogue — this file decides who is eligible</i>
+<b>setu/rules.py</b>        <i>the eligibility engine (no LLM, by design)</i>
+<b>setu/ladder.py</b>       <i>counterfactual path search</i>
+<b>setu/llm.py</b>          <i>Gemini adapter — extraction, narration, translation</i>
+<b>setu/voice.py</b>        <i>faster-whisper ASR, edge-tts TTS</i>
+<b>setu/api.py</b>          <i>HTTP layer</i>
+<b>web/index.html</b>       <i>the PWA, single file</i>
+<b>web/console.html</b>     <i>operator console — callers, benefits, catalogue, eval</i>
+<b>eval/</b>                <i>53 personas and the scoring harness</i>
+<b>scripts/prewarm.py</b>   <i>fills and verifies both caches before a demo</i>
+<b>tests/</b>               <i>104 tests, and the invariants they protect</i></pre>
+        </div>
+        <div class="specimen-note">
+          <p>The PWA is served from the same origin as the API, so the demo has one URL and no CORS in
+            its path.</p>
+        </div>
+      </div>
+
+      <div class="specimen">
+        <div class="specimen-head"><h4>Running it</h4><span>four commands</span></div>
+        <div class="specimen-body">
+<pre>python3 -m venv .venv
+./.venv/bin/pip install -r requirements.txt
+./.venv/bin/python -m pytest -q          <i># 104 passed</i>
+
+cp .env.example .env                     <i># add a Gemini key</i>
+./.venv/bin/uvicorn setu.api:app --port 8000</pre>
+        </div>
+      </div>
+
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Endpoint</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td class="scheme mono">POST /ask</td><td>audio in, spoken answer out</td></tr>
+            <tr><td class="scheme mono">POST /ask/text</td><td>same pipeline, typed — no mic, no tunnel, no Whisper</td></tr>
+            <tr><td class="scheme mono">GET /schemes</td><td>the catalogue with its sources</td></tr>
+            <tr><td class="scheme mono">GET /sessions</td><td>live conversations, for the operator console</td></tr>
+            <tr><td class="scheme mono">GET /eval</td><td>the persona scores, served to the console</td></tr>
+            <tr><td class="scheme mono">GET /health</td><td>scheme count and supported languages</td></tr>
+            <tr><td class="scheme mono">DELETE /session/{id}</td><td>reset between demo runs</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      <p><strong style="color:var(--ink-soft)">Setu</strong> — voice-first government scheme discovery.
+        Built for Prasunethon 2.0, 21–23 August 2026.</p>
+      <p><a href="https://github.com/sanviq/prasunethon-2.0">github.com/sanviq/prasunethon-2.0</a></p>
+    </footer>
+
+  </main>
+</div>
+</body>
+</html>

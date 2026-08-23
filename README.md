@@ -6,6 +6,10 @@ take — over a smartphone browser or a plain feature phone.**
 
 Built for **Prasunethon 2.0** (21–23 August 2026).
 
+**[Technical documentation →](web/technical.html)** — architecture, the rule
+schema, the Ladder's search and verification, the evaluation method, and the
+operational design. Served by the app at `/technical.html`.
+
 ---
 
 ## The problem
@@ -43,8 +47,14 @@ shown — a route that does not actually work is worse than admitting there is
 none, because the person spends real days finding out.
 
 **"Why?" citations.** Every verdict points at the government clause it came
-from — document, page, and the quoted sentence. Users and auditors verify
+from — document, URL, and the quoted sentence. Users and auditors verify
 decisions rather than trusting them.
+
+When the conversation is in Hindi or Marathi the clause is shown translated,
+with the government's exact published sentence kept underneath it and labelled
+as the original. A translated clause reads better, but it is no longer what the
+government wrote, and a citation you have quietly paraphrased has stopped being
+a citation.
 
 ---
 
@@ -84,7 +94,7 @@ exists to replace.
 ```
 voice in ─── browser mic (PWA)
                     │
-              faster-whisper ASR   (local, 8 Indian languages, auto-detect)
+              faster-whisper ASR   (local, auto-detects the language)
                     │
               LLM adapter          (speech → structured profile JSON)
                     │
@@ -94,7 +104,7 @@ voice in ─── browser mic (PWA)
                     │
               LLM adapter          (verdict → plain spoken sentence)
                     │
-              edge-tts             (free, no key, 8 voices)
+              edge-tts             (free, no key, neural voice per language)
                     │
               audio back to the PWA
 ```
@@ -104,10 +114,17 @@ provider is one function, not a rewrite.
 
 ### The LLM layer
 
-Gemini 2.5 Flash, on the free tier — 10 requests/minute, 250/day, which is
-comfortably more than a demo needs. Extraction runs at `temperature=0` against
-a `response_schema`, so the JSON that reaches the rule engine is structurally
-guaranteed rather than hoped for.
+Gemini 3.5 Flash Lite, on the free tier. Extraction runs at `temperature=0`
+against a `response_schema`, so the JSON that reaches the rule engine is
+structurally guaranteed rather than hoped for.
+
+The model was chosen by measurement, not preference — `eval/pick_model.py`
+times the candidates against the same extraction prompt. `gemini-2.5-flash`
+returns 404 for new API keys, and of the models that do answer, this one
+matched the accuracy of the larger ones at 1.3s against 10.3s. The free tier
+also rate-limits at 15 requests/minute, so every call carries a three-attempt
+retry with linear backoff; a judge running the demo twice in a row is exactly
+the burst that would otherwise fail in front of them.
 
 Every call is cached on a content hash. Conference wifi is unreliable and
 re-calling a model for a sentence we already have is a needless risk on stage,
@@ -120,9 +137,20 @@ so silence must never become a fact.
 
 ### Languages
 
-Hindi, Marathi, English, Kannada, Tamil, Telugu, Bengali, Gujarati. Whisper
-auto-detects; edge-tts supplies a neural voice per language at no cost and with
-no API key.
+**The web app offers three: Hindi, Marathi, English.** Whisper auto-detects the
+spoken language and edge-tts answers in it.
+
+`setu/voice.py` carries neural voices for eight — the three above plus Kannada,
+Tamil, Telugu, Bengali and Gujarati — and the pipeline is language-agnostic
+throughout. The picker is deliberately shorter than the capability: the other
+five have not been tested end to end with real speakers, and a language that
+half-works on stage is worse than one that is not offered. They are there for
+the IVR stage, where the missed-call funnel needs them.
+
+Scheme cards are translated into the conversation's language too, so a Hindi
+caller does not get a Hindi answer attached to an English card. The government's
+original wording is kept alongside the translation rather than replaced — see
+*Citations* below.
 
 ---
 
@@ -135,9 +163,12 @@ setu/ladder.py       counterfactual path search
 setu/llm.py          Gemini adapter (extraction + narration)
 setu/voice.py        faster-whisper ASR, edge-tts TTS
 setu/api.py          HTTP layer
-web/                 the PWA, single file, no build step
+web/index.html       the PWA, single file, no build step
+web/console.html     operator console — live callers, benefits, catalogue, eval
+web/technical.html   the technical documentation, served at /technical.html
 eval/                53 personas and the scoring harness
-tests/               61 tests, and the invariants they protect
+scripts/prewarm.py   fills both caches before the demo
+tests/               104 tests, and the invariants they protect
 ```
 
 ### Adding a scheme
@@ -179,12 +210,16 @@ but localhost, which is why the phone demo runs behind a tunnel:
 ngrok http 8000     # then open the https:// URL on the phone
 ```
 
-Before demoing, warm the cache over wifi you trust and then pin it shut:
+Before demoing, warm both caches over wifi you trust and then pin them shut:
 
-```python
-from setu.voice import prewarm
-prewarm({"hi": ["नमस्ते, बोलिए"], "mr": ["नमस्कार, बोला"]})
+```bash
+./.venv/bin/python scripts/prewarm.py
 ```
+
+That walks whole conversations through the live pipeline, translates all 80
+catalogue strings into each language, and then verifies the result by
+re-running everything with the network refused. A cache that has not been
+checked in offline mode is a cache you are guessing about.
 
 ```bash
 SETU_LLM_MODE=offline SETU_VOICE_MODE=offline ./.venv/bin/uvicorn setu.api:app
@@ -201,7 +236,12 @@ replays identically and conference wifi stops being a dependency.
 | `POST /ask/text` | same pipeline, typed — no mic, no tunnel, no Whisper |
 | `GET /schemes` | the catalogue with its sources |
 | `GET /health` | scheme count and supported languages |
+| `GET /sessions` | live conversations, for the operator console |
+| `GET /eval` | the persona scores, served to the console |
 | `DELETE /session/{id}` | reset between demo runs |
+
+The operator console is at `/console.html` — live callers, benefit totals, the
+catalogue with its sources, and the eval report on one screen.
 
 `/ask/text` exists because when something breaks twenty minutes before a demo,
 you want to know whether it is the microphone, the model, or the rules — and

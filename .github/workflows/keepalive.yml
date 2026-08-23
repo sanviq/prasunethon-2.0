@@ -1,0 +1,40 @@
+# Keeps the free-tier container awake.
+#
+# Render sleeps a free service after 15 minutes without traffic, and the wake
+# costs the next visitor 30-60 seconds. There is no way to know when a judge
+# will open the link, so the only options are to accept that they might be the
+# one who pays it, or to make sure nobody is.
+#
+# A GitHub-hosted cron on a public repository is free, so this is the cheap
+# option. Two caveats worth knowing rather than discovering:
+#
+#   - Scheduled workflows are best-effort. GitHub delays them under load, and
+#     10 minutes can become 20. The keep-alive is therefore a strong reduction
+#     in the odds of a cold start, not a guarantee against one -- which is why
+#     the README still warns the reader that the first call may be slow.
+#   - GitHub disables scheduled workflows on repositories with no activity for
+#     60 days. Long past the point this matters.
+name: keepalive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake the demo
+        run: |
+          # --max-time is generous on purpose: if this ping is the one that
+          # wakes a sleeping container, it has to wait out the cold start,
+          # otherwise it hangs up early and leaves it asleep for the next
+          # person -- which is the exact failure this job exists to prevent.
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 \
+            https://setu-ubco.onrender.com/health)
+          echo "health -> $code"
+          test "$code" = "200"

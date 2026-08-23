@@ -40,6 +40,7 @@ import asyncio
 import hashlib
 import os
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
@@ -187,17 +188,46 @@ def _transcribe_remote(audio_path: str | Path, language: str | None) -> tuple[st
         "generationConfig": {"temperature": 0},
     }
 
-    try:
-        reply = httpx.post(
-            f"{llm.API_BASE}/{llm.MODEL}:generateContent",
-            headers={"x-goog-api-key": key},
-            json=body,
-            timeout=ASR_TIMEOUT_SECONDS,
-        )
-        reply.raise_for_status()
-        text = reply.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception as exc:  # noqa: BLE001 - one message for the person holding the phone
-        raise VoiceError(f"could not read the recording ({type(exc).__name__})") from exc
+    # The free tier allows 15 requests a minute and a turn now spends four of
+    # them. Two people trying the demo at once is enough to hit it.
+    #
+    # Retrying matters less than what it is retrying: without this, a 429 came
+    # back to the phone as "could not read the recording", which blames the
+    # caller's voice for the API's quota and sends them off re-recording a clip
+    # that was fine. A wrong error message costs more than a slow one.
+    last: Exception | None = None
+    for attempt in range(3):
+        try:
+            reply = httpx.post(
+                f"{llm.API_BASE}/{llm.MODEL}:generateContent",
+                headers={"x-goog-api-key": key},
+                json=body,
+                timeout=ASR_TIMEOUT_SECONDS,
+            )
+            if reply.status_code in (429, 503):
+                last = VoiceError("busy")
+                if attempt < 2:
+                    time.sleep(llm.RETRY_SECONDS * (attempt + 1))
+                    continue
+                raise VoiceError(
+                    "the speech service is busy — wait a moment and speak again"
+                )
+            reply.raise_for_status()
+            text = reply.json()["candidates"][0]["content"]["parts"][0]["text"]
+            break
+        except VoiceError:
+            raise
+        except (KeyError, IndexError) as exc:
+            raise VoiceError("the speech service returned nothing usable") from exc
+        except Exception as exc:  # noqa: BLE001 - one message for the person holding the phone
+            last = exc
+            if attempt == 2:
+                raise VoiceError(
+                    f"could not read the recording ({type(exc).__name__})"
+                ) from exc
+            time.sleep(llm.RETRY_SECONDS * (attempt + 1))
+    else:  # pragma: no cover - the loop always breaks or raises
+        raise VoiceError(f"could not read the recording ({last})")
 
     detected = language if language in VOICES else DEFAULT_LANGUAGE
     return text.strip(), detected

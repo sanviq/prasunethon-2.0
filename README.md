@@ -6,6 +6,32 @@ take — over a smartphone browser or a plain feature phone.**
 
 Built for **Prasunethon 2.0** (21–23 August 2026).
 
+---
+
+## ▶ Live demo
+
+# **[setu-ubco.onrender.com](https://setu-ubco.onrender.com)**
+
+Open it on a phone, pick a language, hold the green button and say what you do
+for a living. Also there: the [operator
+console](https://setu-ubco.onrender.com/console.html) and the [technical
+documentation](https://setu-ubco.onrender.com/technical.html).
+
+> ### Please read before judging
+>
+> **The first request may take 30–60 seconds.** This runs on a free tier that
+> puts the container to sleep after 15 minutes without visitors, and the first
+> request has to wake it. Every request after that is normal speed — around
+> **3–9 seconds** for a complete turn. If the page seems to hang on the first
+> try, it is waking up, not broken.
+>
+> **The demo offers three languages — Hindi, Marathi and English — not eight.**
+> That is deliberate and explained in [Languages](#languages) below.
+>
+> Neither is a limit of the design. Both are the honest state of a system built
+> in a 36-hour window on free infrastructure, and we would rather say so than
+> have you discover it.
+
 **[Technical documentation →](web/technical.html)** — architecture, the rule
 schema, the Ladder's search and verification, the evaluation method, and the
 operational design. Served by the app at `/technical.html`.
@@ -137,15 +163,37 @@ so silence must never become a fact.
 
 ### Languages
 
-**The web app offers three: Hindi, Marathi, English.** Whisper auto-detects the
-spoken language and edge-tts answers in it.
+**Three are offered. Eight are built. The gap is deliberate.**
 
-`setu/voice.py` carries neural voices for eight — the three above plus Kannada,
-Tamil, Telugu, Bengali and Gujarati — and the pipeline is language-agnostic
-throughout. The picker is deliberately shorter than the capability: the other
-five have not been tested end to end with real speakers, and a language that
-half-works on stage is worse than one that is not offered. They are there for
-the IVR stage, where the missed-call funnel needs them.
+| | Hindi · Marathi · English | Kannada · Tamil · Telugu · Bengali · Gujarati |
+|---|---|---|
+| Neural TTS voice | ✅ | ✅ |
+| ASR | ✅ | ✅ |
+| Pipeline support | ✅ | ✅ |
+| In the language picker | ✅ | ❌ |
+| **Tested end to end with a speaker** | ✅ | ❌ |
+
+Nothing in the pipeline is language-specific — `setu/voice.py` carries a neural
+voice for all eight and the rest of the system never asks what language it is
+handling. Turning the other five on is one line in `web/index.html`.
+
+We have not turned them on because **nobody has held a conversation with Setu in
+Tamil or Bengali.** We do not speak them, and there was no time in a 36-hour
+window to sit with someone who does. A language that half-works — a
+mistranscribed number, a stilted machine voice, a scheme card in the wrong
+script — is worse for the person in front of it than a language that was never
+offered, because it wastes their time while looking like it worked.
+
+So the picker is shorter than the capability, on purpose. It is a claim we can
+defend rather than a feature count.
+
+**Where the other five are going.** They exist for the missed-call channel (see
+[Designed, not yet built](#designed-not-yet-built)), which is the part of this
+that reaches people without a smartphone at all. That channel is where language
+coverage actually matters: a Tamil-speaking construction worker with a feature
+phone is precisely who Setu is for, and precisely who a browser demo cannot
+serve. The voices are in place so that stage is a test-and-enable job rather
+than a rebuild.
 
 Scheme cards are translated into the conversation's language too, so a Hindi
 caller does not get a Hindi answer attached to an English card. The government's

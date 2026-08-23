@@ -20,10 +20,15 @@ documentation](https://setu-ubco.onrender.com/technical.html).
 > ### Please read before judging
 >
 > **The first request may take 30–60 seconds.** This runs on a free tier that
-> puts the container to sleep after 15 minutes without visitors, and the first
-> request has to wake it. Every request after that is normal speed — around
-> **3–9 seconds** for a complete turn. If the page seems to hang on the first
-> try, it is waking up, not broken.
+> sleeps the container after 15 minutes without visitors, and the first request
+> has to wake it. If the page seems to hang on the first try, it is waking, not
+> broken.
+>
+> **After that, expect 10–15 seconds for a spoken turn.** Measured on the
+> deployed instance, not on a laptop. The free tier provides roughly a tenth of
+> a CPU, and a turn spends four calls against a rate-limited model API. The
+> same pipeline runs a turn in **3.4 seconds** on one ordinary CPU core — the
+> latency here is the hosting, not the design.
 >
 > **The demo offers three languages — Hindi, Marathi and English — not eight.**
 > That is deliberate and explained in [Languages](#languages) below.

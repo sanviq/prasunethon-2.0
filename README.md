@@ -249,6 +249,56 @@ that endpoint answers the question in one curl.
 
 ---
 
+## Deploying it
+
+One container, one port. `Dockerfile` bakes the ASR model into the image, so a
+cold start is a process start rather than a 464MB download.
+
+**What it needs.** Peak resident memory during a real turn is **98MB** —
+CTranslate2 memory-maps the model rather than loading it, so this runs in far
+less RAM than an ASR service usually implies. Budget **1GB** to leave the page
+cache room, and **~2GB of disk** for the image. One vCPU works; two roughly
+halves transcription time, which is 70% of the turn.
+
+**Hugging Face Spaces** is the best free fit and needs no card: create a Space,
+pick **Docker** as the SDK, push this repo, and add `GEMINI_API_KEY` under
+*Settings → Secrets*. It listens on 7860, which is what the Dockerfile
+defaults to, and you get a permanent HTTPS URL — which the microphone requires
+and a tunnel URL only ever pretends to be.
+
+**Anywhere else** — Cloud Run, Fly, Railway, Render — reads `$PORT`:
+
+```bash
+docker build -t setu .
+docker run -p 8000:8000 -e PORT=8000 -e GEMINI_API_KEY=... setu
+```
+
+On a host that scales to zero, the first request after an idle period still
+pays the model load (~4s) even with the model baked in. Keep one instance warm
+if you are being judged live.
+
+**After deploying, warm the deployed instance** — not your laptop. The cache
+lives inside the container and nothing on your machine can reach into it, so
+the warmer drives the deployed app through its own endpoint:
+
+```bash
+./.venv/bin/python scripts/prewarm.py --url https://your-space.hf.space
+```
+
+Run it twice. The second pass should report `0.0s` on every turn; if it does
+not, the cache is not being written where you think it is. Translation is
+cached per string, so this is what takes a turn from ~16s to under a second on
+the scripted path.
+
+One caveat worth planning around: **a container that scales to zero loses the
+cache when it stops**, so this has to be re-run after every cold start. If you
+are being judged live, keep one instance warm rather than trusting the timing.
+
+**Never commit `.env`.** It is gitignored, `.env.example` ships an empty key,
+and the key belongs in the host's secret store.
+
+---
+
 ## Evaluation
 
 ```bash

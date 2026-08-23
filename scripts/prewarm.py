@@ -208,7 +208,71 @@ def verify_offline() -> bool:
     return ok
 
 
+def warm_remote(base_url: str) -> int:
+    """
+    Warm a DEPLOYED instance by driving its own /ask/text.
+
+    Everything else in this file warms the cache on the machine it runs on,
+    which is the wrong machine once Setu is deployed: the cache lives inside
+    the container, and a laptop cannot reach in and fill it.
+
+    Worth knowing before relying on this: a container that scales to zero loses
+    the cache when it stops, so this has to be re-run after every cold start.
+    If the demo is being judged live, either keep one instance warm or commit
+    data/llm_cache into the image and stop depending on timing.
+    """
+    import httpx
+
+    base = base_url.rstrip("/")
+    done = failed = 0
+
+    for language, conversations in CONVERSATIONS.items():
+        for n, turns in enumerate(conversations):
+            session = f"warm-{language}-{n}"
+
+            # Reset first, or the second run is not a repeat of the first: the
+            # server still holds the finished profile, so turn one is answered
+            # from a state the real caller will never be in and every prompt --
+            # and so every cache key -- comes out different. The first version
+            # of this loop skipped it and showed no speed-up at all on a second
+            # pass, which is exactly the symptom its own closing message warns
+            # about.
+            try:
+                httpx.delete(f"{base}/session/{session}", timeout=30)
+            except Exception:  # noqa: BLE001 - a fresh instance has no session
+                pass
+
+            for turn in turns:
+                started = time.time()
+                try:
+                    reply = httpx.post(
+                        f"{base}/ask/text",
+                        data={"text": turn, "language": language, "session_id": session},
+                        timeout=120,
+                    )
+                    reply.raise_for_status()
+                    done += 1
+                    print(f"  [{language}] {time.time() - started:5.1f}s  {turn[:44]}…")
+                except Exception as exc:  # noqa: BLE001 - report and keep going
+                    failed += 1
+                    print(f"  [{language}] FAILED  {type(exc).__name__}: {exc}")
+                    print(f"           {turn[:44]}…")
+
+    print(f"\n{done} turns warmed, {failed} failed against {base}")
+    if failed:
+        return 1
+
+    print("Run it once more -- the second pass should be visibly faster, and if")
+    print("it is not, the cache is not being written where you think it is.")
+    return 0
+
+
 def main() -> int:
+    # A deployed instance is warmed over HTTP; a local one, in process.
+    for flag in ("--url", "--remote"):
+        if flag in sys.argv:
+            return warm_remote(sys.argv[sys.argv.index(flag) + 1])
+
     print(f"model: {llm.MODEL}   whisper: {voice.WHISPER_SIZE}\n")
 
     print("Pipeline (extract -> rules -> narrate -> speak)")

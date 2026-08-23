@@ -1,0 +1,13 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+data/chroma/
+
+# The caches are rebuilt by scripts/prewarm.py against the deployed instance.
+# Copying a laptop's cache in would work, but it would also be the one thing in
+# the image nobody can reproduce from the repository.
+data/llm_cache/
+data/voice_cache/

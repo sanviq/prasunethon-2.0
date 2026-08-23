@@ -625,12 +625,26 @@ LINES:
 """
 
 
+def _translation_key(text: str, language: str) -> str:
+    return _cache_key("translate1", {"s": text, "lang": language})
+
+
 def translate(strings: list[str], language: str) -> list[str]:
     """
     Translate display strings into the caller's language.
 
-    Cached on content, so the catalogue costs one call per language for the
-    whole demo and nothing thereafter.
+    Sent as one batched call but cached PER STRING, which is the difference
+    between prewarming working and prewarming looking like it works.
+
+    Caching the batch instead was the obvious first implementation and it was
+    wrong in a way that only shows up in a live run: the key covers the whole
+    prompt, so a response whose ladder mentions a Town Vending Committee misses
+    on every one of its eighty strings because two of them are new. Measured on
+    a warmed cache, that mistake cost 6.7 seconds of a 15-second turn -- the
+    single largest item in it, and entirely self-inflicted.
+
+    Per string, a new caller pays for the handful of lines nobody has said
+    before and reads the rest off disk.
 
     Falls back to the original English on any failure. A scheme card in the
     wrong language is a poor experience; a scheme card that fails to render
@@ -639,7 +653,19 @@ def translate(strings: list[str], language: str) -> list[str]:
     if not strings or language == "en":
         return strings
 
-    numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(strings))
+    out: list[str | None] = [None] * len(strings)
+    wanted: list[str] = []  # unique, in first-seen order
+    for i, s in enumerate(strings):
+        hit = _cached(_translation_key(s, language))
+        if hit is not None:
+            out[i] = hit
+        elif s not in wanted:
+            wanted.append(s)
+
+    if not wanted:
+        return [t or s for t, s in zip(out, strings)]
+
+    numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(wanted))
     schema = {
         "type": "object",
         "properties": {
@@ -652,18 +678,27 @@ def translate(strings: list[str], language: str) -> list[str]:
         raw = _generate(
             TRANSLATE_PROMPT.format(
                 language=LANGUAGE_NAMES.get(language, "Hindi"),
-                count=len(strings),
+                count=len(wanted),
                 lines=numbered,
             ),
             kind="translate",
             schema=schema,
         )
-        out = json.loads(raw)["translations"]
+        got = json.loads(raw)["translations"]
     except (LLMError, json.JSONDecodeError, KeyError, TypeError):
         return strings
 
     # A short reply would silently shift every label onto the wrong card.
-    if len(out) != len(strings):
+    if len(got) != len(wanted):
         return strings
 
-    return [t or original for t, original in zip(out, strings)]
+    fresh = {}
+    for original, translated in zip(wanted, got):
+        if translated:
+            fresh[original] = translated
+            _store(_translation_key(original, language), translated)
+
+    return [
+        out[i] or fresh.get(s) or s
+        for i, s in enumerate(strings)
+    ]

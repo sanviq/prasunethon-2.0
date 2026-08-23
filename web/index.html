@@ -8,142 +8,275 @@
 <link rel="manifest" href="manifest.webmanifest">
 <style>
   /* Built for a cheap Android phone in daylight, held by someone who may not
-     read. Big targets, high contrast, colour never the only signal. */
+     read. Big targets, high contrast, colour never the only signal.
+
+     Light only, and deliberately: this is used outdoors at a market stall, and
+     a dark theme that looks considered on a laptop is unreadable there. Every
+     colour is painted explicitly so the page holds on any host background. */
   :root {
-    --bg: #ffffff;
-    --ink: #16210f;
-    --muted: #5a6b52;
-    --line: #d8e0d2;
+    --bg: #fbfcfa;
+    --surface: #ffffff;
+    --raise: #f4f8f2;
+    --ink: #14200f;
+    --ink-2: #35442f;
+    --muted: #61705a;
+    --line: #dfe7da;
+    --line-2: #c9d5c2;
+
     --go: #0f5132;
-    --go-soft: #e7f3ec;
+    --go-2: #17724a;
+    --go-soft: #e8f3ec;
     --wait: #8a5a00;
-    --wait-soft: #fdf3e0;
+    --wait-soft: #fdf4e3;
     --stop: #7a2d2d;
-    --stop-soft: #fbeceb;
+    --stop-soft: #fbeded;
+
+    --sh-1: 0 1px 2px rgba(20,32,15,.05);
+    --sh-2: 0 2px 4px rgba(20,32,15,.05), 0 12px 28px -18px rgba(20,32,15,.28);
+    --r: 14px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font: 17px/1.55 system-ui, -apple-system, "Noto Sans Devanagari", sans-serif;
-    padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 96px);
+    padding: 0 0 calc(env(safe-area-inset-bottom) + 104px);
+    -webkit-font-smoothing: antialiased;
   }
+  :focus-visible { outline: 3px solid var(--go); outline-offset: 2px; border-radius: 6px; }
+
   header {
-    padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 5;
+    padding: calc(env(safe-area-inset-top) + 13px) 20px 13px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(251,252,250,.92); backdrop-filter: blur(10px);
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   }
-  h1 { font-size: 21px; margin: 0; letter-spacing: -0.01em; }
-  h1 span { color: var(--muted); font-weight: 400; font-size: 14px; display: block; }
-  main { padding: 18px 20px; max-width: 640px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .mark { width: 38px; height: 38px; flex: none; border-radius: 11px; box-shadow: var(--sh-1); }
+  h1 {
+    font-size: 21px; margin: 0; letter-spacing: -.02em; font-weight: 700;
+    line-height: 1.1;
+  }
+  h1 span {
+    color: var(--muted); font-weight: 400; font-size: 13.5px; display: block;
+    letter-spacing: 0; margin-top: 2px;
+  }
+  main { padding: 20px; max-width: 640px; margin: 0 auto; }
 
   /* Language picker — first thing you see, because everything after it is in
      that language and getting it wrong wastes the whole conversation. */
-  .langs { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+  .langs { display: flex; flex-wrap: wrap; gap: 7px; margin-left: auto; }
   .lang {
-    border: 1px solid var(--line); background: #fff; color: var(--muted);
-    border-radius: 999px; padding: 7px 13px; font-size: 15px; cursor: pointer;
+    border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2);
+    border-radius: 999px; padding: 8px 15px; font-size: 15px; cursor: pointer;
+    font-family: inherit; font-weight: 500; transition: background .12s, color .12s;
   }
-  .lang[aria-pressed="true"] { background: var(--go); border-color: var(--go); color: #fff; }
+  .lang:hover { background: var(--raise); }
+  .lang[aria-pressed="true"] {
+    background: var(--go); border-color: var(--go); color: #fff; font-weight: 600;
+  }
 
   /* A conversation, not a single reply. Earlier turns stay on screen: it is
      the record of what Setu was told, and the thing a caller scrolls back
      through when an operator asks "what did you say about the bank account?" */
-  .turn { display: flex; margin-bottom: 12px; }
+  .turn { display: flex; margin-bottom: 14px; }
   .turn.me { justify-content: flex-end; }
-  .bubble { max-width: 84%; border-radius: 16px; padding: 12px 15px; font-size: 17px; }
+  .bubble {
+    max-width: 85%; border-radius: 18px; padding: 13px 16px; font-size: 17px;
+    box-shadow: var(--sh-1);
+  }
   .me .bubble {
-    background: #f0f4ee; color: var(--ink); border-bottom-right-radius: 5px;
+    background: var(--raise); border: 1px solid var(--line);
+    color: var(--ink-2); border-bottom-right-radius: 6px;
   }
   .setu .bubble {
-    background: var(--go-soft); border: 1px solid var(--go);
-    border-bottom-left-radius: 5px; font-size: 18px;
+    background: var(--go-soft); border: 1px solid #bcdcc9;
+    border-bottom-left-radius: 6px; font-size: 18px; line-height: 1.5;
   }
-  .setu .bubble audio { width: 100%; margin-top: 10px; height: 34px; }
+  .setu .bubble audio { width: 100%; margin-top: 11px; height: 34px; }
   .turn .who {
-    font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
-    color: var(--muted); margin-bottom: 4px; font-weight: 600;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--muted); margin-bottom: 5px; font-weight: 700;
   }
+  .turn.me .who { text-align: right; }
 
   /* Only the latest turn carries the panels; older ones stay as plain speech. */
-  #panels { margin-top: 8px; }
+  #panels { margin-top: 10px; }
 
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
-       color: var(--muted); margin: 26px 0 10px; font-weight: 600; }
+  h2 {
+    font-size: 12.5px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--muted); margin: 30px 0 12px; font-weight: 700;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
   /* The Ladder — deliberately the loudest thing on the page after the spoken
      answer. "Not eligible" is never the end of the conversation. */
   .rung {
     border: 1px solid var(--line); border-left: 5px solid var(--wait);
-    border-radius: 12px; padding: 15px 16px; margin-bottom: 11px; background: #fff;
+    border-radius: var(--r); padding: 16px 17px; margin-bottom: 12px;
+    background: var(--surface); box-shadow: var(--sh-2);
   }
-  .rung .head { font-weight: 600; margin-bottom: 7px; }
-  .rung .meta { color: var(--muted); font-size: 15px; }
+  .rung .head { font-weight: 650; margin-bottom: 9px; font-size: 17px; line-height: 1.38; }
+  .rung .meta {
+    color: var(--ink-2); font-size: 14.5px; display: flex; flex-wrap: wrap;
+    gap: 6px 10px; align-items: center;
+  }
+  .rung .meta b {
+    background: var(--wait-soft); color: var(--wait); font-weight: 700;
+    padding: 3px 9px; border-radius: 999px; font-size: 13.5px;
+    border: 1px solid #ecd9ae;
+  }
   .rung ol { margin: 11px 0 0; padding-left: 20px; }
   .rung li { margin-bottom: 8px; }
 
   .card {
-    border: 1px solid var(--line); border-radius: 12px;
-    padding: 14px 16px; margin-bottom: 10px; background: #fff;
+    border: 1px solid var(--line); border-radius: var(--r);
+    padding: 15px 17px; margin-bottom: 11px; background: var(--surface);
+    box-shadow: var(--sh-1);
   }
   .card.ELIGIBLE { border-left: 5px solid var(--go); background: var(--go-soft); }
   .card.NEED_INFO { border-left: 5px solid var(--wait); background: var(--wait-soft); }
   .card.NOT_ELIGIBLE { border-left: 5px solid var(--stop); background: var(--stop-soft); }
   .card .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-  .card .name { font-weight: 600; }
-  .card .amt { color: var(--muted); font-size: 15px; white-space: nowrap; }
-  .card .tag { font-size: 13px; font-weight: 600; margin-top: 3px; }
+  .card .name { font-weight: 650; font-size: 17px; letter-spacing: -.01em; }
+  .card .amt {
+    color: var(--ink-2); font-size: 15px; white-space: nowrap; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Status reads as a shape and a word before it reads as a colour — the screen
+     is often in sunlight, and some of these callers cannot read the word. */
+  .card .tag {
+    font-size: 13.5px; font-weight: 700; margin-top: 6px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .card .tag i {
+    width: 17px; height: 17px; border-radius: 50%; flex: none;
+    display: inline-grid; place-items: center; font-style: normal;
+    font-size: 11px; font-weight: 700; color: #fff; line-height: 1;
+  }
   .ELIGIBLE .tag { color: var(--go); }
+  .ELIGIBLE .tag i { background: var(--go); }
   .NEED_INFO .tag { color: var(--wait); }
+  .NEED_INFO .tag i { background: var(--wait); }
   .NOT_ELIGIBLE .tag { color: var(--stop); }
+  .NOT_ELIGIBLE .tag i { background: var(--stop); }
 
   /* Every verdict is defensible or it does not ship. */
-  details { margin-top: 10px; }
-  summary { cursor: pointer; font-size: 15px; color: var(--muted); font-weight: 600; }
-  blockquote {
-    margin: 9px 0 0; padding: 9px 13px; border-left: 3px solid var(--line);
-    color: var(--muted); font-size: 15px;
+  details { margin-top: 12px; }
+  summary {
+    cursor: pointer; font-size: 14.5px; color: var(--ink-2); font-weight: 650;
+    padding: 4px 0; list-style: none; display: inline-flex; align-items: center; gap: 6px;
   }
-  blockquote cite { display: block; margin-top: 5px; font-size: 13px; font-style: normal; }
-  blockquote .orig { display: block; margin-top: 7px; font-size: 13.5px; opacity: .8; }
-  blockquote a { color: var(--go); }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "›"; display: inline-block; font-size: 17px; line-height: 1;
+    transform: rotate(90deg); transition: transform .15s; color: var(--muted);
+  }
+  details[open] summary::before { transform: rotate(-90deg); }
+  blockquote {
+    margin: 9px 0 0; padding: 11px 14px; border-left: 3px solid var(--line-2);
+    background: rgba(255,255,255,.6); border-radius: 0 8px 8px 0;
+    color: var(--ink-2); font-size: 15px; line-height: 1.5;
+  }
+  blockquote cite {
+    display: block; margin-top: 7px; font-size: 12.5px; font-style: normal;
+    color: var(--muted);
+  }
+  blockquote .orig {
+    display: block; margin-top: 9px; padding-top: 8px; font-size: 13.5px;
+    border-top: 1px dashed var(--line-2); color: var(--muted);
+  }
+  blockquote a { color: var(--go); font-weight: 600; }
 
   /* Mic — thumb-reachable, unmistakable, one control. */
   .dock {
-    position: fixed; left: 0; right: 0; bottom: 0; padding: 14px 20px
-    calc(14px + env(safe-area-inset-bottom));
-    background: rgba(255,255,255,.96); backdrop-filter: blur(8px);
+    position: fixed; left: 0; right: 0; bottom: 0;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+    background: rgba(251,252,250,.94); backdrop-filter: blur(10px);
     border-top: 1px solid var(--line); display: flex; justify-content: center;
   }
   #mic {
-    width: 100%; max-width: 600px; border: 0; border-radius: 16px;
-    background: var(--go); color: #fff; font-size: 19px; font-weight: 600;
+    width: 100%; max-width: 600px; border: 0; border-radius: var(--r);
+    background: var(--go); color: #fff; font-size: 19px; font-weight: 650;
     padding: 19px; cursor: pointer; display: flex; align-items: center;
-    justify-content: center; gap: 11px;
+    justify-content: center; gap: 11px; font-family: inherit;
+    box-shadow: 0 3px 10px rgba(15,81,50,.24); transition: background .12s;
   }
-  #mic[data-state="rec"] { background: var(--stop); animation: pulse 1.3s infinite; }
-  #mic[disabled] { background: var(--muted); }
-  @keyframes pulse { 50% { opacity: .72; } }
+  #mic:hover { background: var(--go-2); }
+  .micicon { width: 22px; height: 22px; flex: none; }
+  #mic[data-state="rec"] {
+    background: var(--stop); box-shadow: 0 3px 10px rgba(122,45,45,.26);
+    animation: pulse 1.3s infinite;
+  }
+  #mic[disabled] { background: var(--muted); box-shadow: none; cursor: default; }
+  @keyframes pulse { 50% { opacity: .74; } }
 
-  .note { color: var(--muted); font-size: 15px; text-align: center; padding: 26px 10px; }
-  .err { border: 1px solid var(--stop); background: var(--stop-soft); color: var(--stop);
-         border-radius: 12px; padding: 13px 15px; margin-bottom: 16px; }
-  @media (prefers-reduced-motion: reduce) { #mic { animation: none !important; } }
+  /* Empty state: the only screen a first-time caller sees before speaking, so
+     it says what to do rather than what this is. */
+  .note {
+    color: var(--ink-2); font-size: 16.5px; text-align: center; line-height: 1.6;
+    padding: 46px 18px; border: 1px dashed var(--line-2); border-radius: var(--r);
+    background: var(--surface); margin-top: 8px;
+  }
+  .note::before {
+    content: ""; display: block; width: 30px; height: 30px; margin: 0 auto 15px;
+    background-color: var(--go);
+    -webkit-mask: var(--micmask) center/contain no-repeat;
+            mask: var(--micmask) center/contain no-repeat;
+  }
+  :root {
+    --micmask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='9' y='2.5' width='6' height='11.5' rx='3' fill='none' stroke='black' stroke-width='2'/><path d='M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/></svg>");
+  }
+  .err {
+    border: 1px solid var(--stop); background: var(--stop-soft); color: var(--stop);
+    border-radius: var(--r); padding: 14px 16px; margin-bottom: 16px; font-weight: 500;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #mic { animation: none !important; }
+    * { transition: none !important; }
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Setu<span>बोलिए, हम सुन रहे हैं</span></h1>
+  <div class="brand">
+    <!-- Setu means bridge. The mark is one: a span, its piers, and the gap it
+         crosses -- which is the whole product in one shape. Drawn rather than
+         typed so it survives being 26px on a cheap phone. -->
+    <svg class="mark" viewBox="0 0 40 40" role="img" aria-label="Setu">
+      <rect width="40" height="40" rx="11" fill="var(--go)"/>
+      <!-- the deck: the crossing itself, so it is the heaviest stroke -->
+      <path d="M6.5 18h27" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+      <!-- the arch carrying it, landing on both banks -->
+      <path d="M11 30.5V27a9 9 0 0 1 18 0v3.5"
+            fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+      <!-- the banks it reaches, which is the point of a bridge -->
+      <path d="M7.6 30.5V22M32.4 30.5V22"
+            stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".62"/>
+    </svg>
+    <h1>Setu<span id="tagline">बोलिए, हम सुन रहे हैं</span></h1>
+  </div>
   <div class="langs" id="langs"></div>
 </header>
 
 <main>
   <div id="thread"></div>
   <div id="panels"></div>
-  <p class="note" id="hint">हरा बटन दबाइए और अपने बारे में बताइए —<br>आप क्या काम करते हैं, आपकी उम्र क्या है।</p>
+  <div class="note" id="hint"></div>
 </main>
 
 <div class="dock">
-  <button id="mic" data-state="idle">🎤 <span id="micLabel">बोलिए</span></button>
+  <button id="mic" data-state="idle">
+    <svg class="micicon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="9" y="2.5" width="6" height="11.5" rx="3"
+            fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span id="micLabel">बोलिए</span>
+  </button>
 </div>
 
 <script>
@@ -170,7 +303,26 @@ const LABELS = {
         ELIGIBLE: "You can get this", NEED_INFO: "Still checking",
         NOT_ELIGIBLE: "Not right now", original: "Original government wording" },
 };
+
+// The header tagline and the opening prompt used to be written into the HTML in
+// Hindi and never touched again, so picking English left the first thing you
+// read in a language you did not choose -- on the one screen whose entire job is
+// to prove the app speaks yours.
+const CHROME = {
+  hi: { tagline: "बोलिए, हम सुन रहे हैं",
+        hint: "हरा बटन दबाइए और अपने बारे में बताइए —<br>आप क्या काम करते हैं, आपकी उम्र क्या है।" },
+  mr: { tagline: "बोला, आम्ही ऐकतो आहोत",
+        hint: "हिरवं बटण दाबा आणि तुमच्याबद्दल सांगा —<br>तुम्ही काय काम करता, तुमचं वय किती आहे." },
+  en: { tagline: "Speak, and we are listening",
+        hint: "Press the green button and tell us about yourself —<br>what work you do, and how old you are." },
+};
+const C = () => CHROME[lang] || CHROME.hi;
 const T = () => LABELS[lang] || LABELS.hi;
+
+// Status must survive sunlight, a cheap screen and colour blindness, so it
+// carries a shape and a word as well as a colour. None of the three is load
+// bearing on its own.
+const GLYPH = { ELIGIBLE: "✓", NOT_ELIGIBLE: "✕", NEED_INFO: "?" };
 
 let lang = localStorage.getItem("setu.lang") || "hi";
 let session = null, recorder = null, chunks = [], startedAt = 0, timer = null;
@@ -197,8 +349,18 @@ function drawLangs() {
     // extracted from a different language and the narration would mix.
     session = null;
     drawLangs();
-    $("micLabel").textContent = T().speak;
+    applyLang();
   };
+}
+
+// Everything on screen that is not a server response. Called on load and on
+// every language change, so no string can be left behind in the old language.
+function applyLang() {
+  document.documentElement.lang = lang;
+  $("tagline").textContent = C().tagline;
+  $("micLabel").textContent = T().speak;
+  const hint = $("hint");
+  if (hint) hint.innerHTML = C().hint;
 }
 
 function citations(list) {
@@ -248,8 +410,11 @@ function render(d) {
     for (const p of d.next_steps || []) {
       parts.push(`<div class="rung">
         <div class="head">${esc(p.action)}</div>
-        <div class="meta">${p.cost === 0 ? "₹0" : rupees(p.cost)} · ${p.days} days ·
-          ${t.unlocks} ${rupees(p.unlocks)} (${p.schemes.length})</div>
+        <div class="meta">
+          <span>${p.cost === 0 ? "₹0" : rupees(p.cost)}</span><span>·</span>
+          <span>${p.days} days</span>
+          <b>${t.unlocks} ${rupees(p.unlocks)} · ${p.schemes.length}</b>
+        </div>
         <details><summary>${t.why}</summary>${citations([p.why])}</details>
       </div>`);
     }
@@ -260,7 +425,7 @@ function render(d) {
     const shown = c.status === "ELIGIBLE" ? c.passed : (c.failed.length ? c.failed : c.unknown);
     parts.push(`<div class="card ${c.status}">
       <div class="row"><span class="name">${esc(c.name)}</span><span class="amt">${rupees(c.amount)}</span></div>
-      <div class="tag">${esc(t[c.status] || c.status.replace("_", " "))}</div>
+      <div class="tag"><i aria-hidden="true">${GLYPH[c.status] || "?"}</i>${esc(t[c.status] || c.status.replace("_", " "))}</div>
       ${shown.length ? `<details><summary>${t.why}</summary>${citations(shown)}</details>` : ""}
     </div>`);
   }
@@ -350,7 +515,7 @@ $("mic").onclick = async () => {
 };
 
 drawLangs();
-$("micLabel").textContent = T().speak;
+applyLang();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>

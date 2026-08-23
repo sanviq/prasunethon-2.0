@@ -157,6 +157,11 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 const rupees = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
 
+// What the PWA actually offers. /health reports the voice layer's eight, which
+// includes five that have never been through a conversation with a real
+// speaker. Keep this in step with LANGS in index.html.
+const LIVE_LANGS = ["hi", "mr", "en"];
+
 // Status carries an icon and a label, never colour alone.
 const STATUS = {
   ELIGIBLE:     { cls: "good",     icon: "●", label: "Eligible" },
@@ -194,7 +199,11 @@ async function loadSystem() {
   $("tiles").innerHTML = [
     [health.schemes, "Schemes in catalogue", "every rule cited to source"],
     [rules, "Typed eligibility rules", "no LLM touches a verdict"],
-    [health.languages.length, "Languages", health.languages.join(" · ")],
+    // The tile used to read the voice layer's count, which is 8, while the app
+    // offers 3. Claiming five languages nobody has ever spoken to it is the
+    // exact overclaim the citations elsewhere exist to prevent.
+    [LIVE_LANGS.length, "Languages live",
+     LIVE_LANGS.join(" · ") + ` · ${health.languages.length - LIVE_LANGS.length} more built for IVR`],
     [rupees(total), "Total benefit modelled", "across all schemes"],
   ].map(([n, l, f]) =>
     `<div class="tile"><div class="n">${n}</div><div class="l">${esc(l)}</div><div class="foot">${esc(f)}</div></div>`

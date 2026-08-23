@@ -445,4 +445,34 @@ WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 if WEB_DIR.exists():
     from fastapi.staticfiles import StaticFiles
 
-    app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
+    class _Shell(StaticFiles):
+        """
+        Serve the shell with `Cache-Control: no-cache`.
+
+        StaticFiles sends an ETag and a Last-Modified but no Cache-Control at
+        all, which does not mean "do not cache" -- it means the browser is free
+        to guess, and what it guesses is heuristic freshness: roughly a tenth of
+        the file's age, served straight from disk without asking us whether it
+        changed.
+
+        The effect is a deployed fix that is simply not there, with no error and
+        nothing in the log, until someone thinks to clear a cache. It cost an
+        hour here and it would have cost it again on the deployed URL, in front
+        of whoever was watching.
+
+        no-cache does not mean "do not store" -- it means revalidate first, and
+        the ETag above makes that a 304 with an empty body. The page stays fast
+        and stops being wrong.
+        """
+
+        async def get_response(self, path: str, scope: Any) -> Any:
+            response = await super().get_response(path, scope)
+            if path.endswith((".html", ".webmanifest")) or path in ("", ".", "/"):
+                response.headers["Cache-Control"] = "no-cache"
+            elif path.endswith("sw.js"):
+                # A stale service worker is the worst of them: it decides what
+                # every other request is allowed to see.
+                response.headers["Cache-Control"] = "no-cache"
+            return response
+
+    app.mount("/", _Shell(directory=WEB_DIR, html=True), name="web")

@@ -1,0 +1,16 @@
+# Deployment requirements: everything except the local ASR stack.
+#
+# faster-whisper drags in ctranslate2, av, onnxruntime and a 464MB model. All of
+# it exists to avoid sending audio to a provider -- which is the right default on
+# a laptop and an impossible one on free hosting, where you get roughly a tenth
+# of a CPU and a five-second transcription becomes fifty.
+#
+# With SETU_ASR=gemini the provider does ASR, this file is what the image needs,
+# and the image drops from ~2GB to ~150MB. See setu/voice.py:_transcribe_remote
+# for what that trade actually costs.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+python-multipart>=0.0.9
+edge-tts>=6.1
+httpx>=0.27

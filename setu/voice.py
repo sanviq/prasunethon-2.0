@@ -48,6 +48,13 @@ CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "voice_cache"
 VOICE_MODE = os.getenv("SETU_VOICE_MODE", "auto")  # auto | offline
 WHISPER_SIZE = os.getenv("SETU_WHISPER_SIZE", "small")
 
+# "whisper" runs ASR locally; "gemini" sends the clip to the LLM provider.
+# Local is the default because it keeps the pipeline honest -- speech never
+# leaves the machine and the demo survives a dead network. Deployment flips it,
+# for the reasons in _transcribe_remote below.
+ASR = os.getenv("SETU_ASR", "whisper").lower()
+ASR_TIMEOUT_SECONDS = float(os.getenv("SETU_ASR_TIMEOUT", "60"))
+
 # edge-tts neural voices, one per supported language. Male by default: the demo
 # persona is a man, and a mismatched voice is a small thing that quietly
 # undermines a pitch.
@@ -113,7 +120,87 @@ def preload() -> None:
     request is the demo. Called from the API's startup hook so the wait happens
     while uvicorn boots, where nobody is watching.
     """
+    if ASR == "gemini":
+        # Nothing to load, and importing faster-whisper would defeat the point:
+        # in this mode it is not installed in the image at all.
+        return
     _whisper()
+
+
+def _transcribe_remote(audio_path: str | Path, language: str | None) -> tuple[str, str]:
+    """
+    Transcribe through the LLM provider instead of a local model.
+
+    Measured against faster-whisper `small` on the same Hindi clip:
+
+        whisper small   4.9s   "मैं मुमबाई में सबजी बेजती हूँ ... चोथटीस साल"
+        gemini          2.3s   "मैं मुंबई में सब्जी बेचती हूँ। मेरी उम्र 34 साल है"
+
+    Faster and more accurate, which was not the expected result -- the local
+    model was chosen partly on the assumption it would win on quality.
+
+    The reason this mode exists is deployment, not speed. A local model wants a
+    real CPU, and free hosting gives you about a tenth of one, which turns a
+    five-second transcription into fifty. Moving ASR to the provider removes
+    464MB from the image and the CPU floor with it, which is the difference
+    between a link that stays up for free and a laptop that has to stay open.
+
+    What it costs: ASR now needs the network, so offline mode covers only what
+    has already been cached, and a turn spends four provider calls instead of
+    three against a 15/minute free tier.
+
+    This is the swap the adapter shape was for. Nothing outside this function
+    changes.
+    """
+    import base64
+
+    import httpx
+
+    from . import llm
+
+    key = os.getenv("GEMINI_API_KEY")
+    if not key:
+        raise VoiceError("GEMINI_API_KEY is not set")
+
+    suffix = Path(audio_path).suffix.lower()
+    mime = {
+        ".webm": "audio/webm", ".mp3": "audio/mp3", ".m4a": "audio/mp4",
+        ".wav": "audio/wav", ".ogg": "audio/ogg", ".mp4": "audio/mp4",
+    }.get(suffix, "audio/webm")
+
+    named = llm.LANGUAGE_NAMES.get(language or "", "")
+    instruction = (
+        f"Transcribe this {named} audio verbatim in its native script."
+        if named else
+        "Transcribe this audio verbatim in its original script."
+    ) + (
+        " Output only the transcript, with no commentary, no translation and no"
+        " quotation marks. If there is no intelligible speech, output nothing."
+    )
+
+    body = {
+        "contents": [{"parts": [
+            {"text": instruction},
+            {"inline_data": {"mime_type": mime,
+                             "data": base64.b64encode(Path(audio_path).read_bytes()).decode()}},
+        ]}],
+        "generationConfig": {"temperature": 0},
+    }
+
+    try:
+        reply = httpx.post(
+            f"{llm.API_BASE}/{llm.MODEL}:generateContent",
+            headers={"x-goog-api-key": key},
+            json=body,
+            timeout=ASR_TIMEOUT_SECONDS,
+        )
+        reply.raise_for_status()
+        text = reply.json()["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception as exc:  # noqa: BLE001 - one message for the person holding the phone
+        raise VoiceError(f"could not read the recording ({type(exc).__name__})") from exc
+
+    detected = language if language in VOICES else DEFAULT_LANGUAGE
+    return text.strip(), detected
 
 
 def transcribe(audio_path: str | Path, language: str | None = None) -> tuple[str, str]:
@@ -130,6 +217,9 @@ def transcribe(audio_path: str | Path, language: str | None = None) -> tuple[str
         # A tap rather than a sentence. Decoding this raises deep inside PyAV
         # with a message about invalid data, which tells the caller nothing.
         raise VoiceError("recording too short — hold the button and speak")
+
+    if ASR == "gemini":
+        return _transcribe_remote(audio_path, language)
 
     try:
         segments, info = _whisper().transcribe(

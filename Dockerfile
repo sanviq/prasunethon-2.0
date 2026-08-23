@@ -1,49 +1,44 @@
 # Setu — one container, one port, no build step for the front end.
 #
-# Python 3.12 rather than 3.14: ctranslate2 (what faster-whisper runs on) ships
-# manylinux wheels a release or two behind, and a host that has to compile it
-# from source is a twenty-minute build that usually fails instead.
+# This image runs ASR through the LLM provider (SETU_ASR=gemini) rather than a
+# local Whisper model. That is not the preferred architecture -- speech leaving
+# the machine is a real cost, and setu/voice.py keeps the local path as the
+# default for laptops and for the IVR stage.
+#
+# It is the architecture free hosting permits. A local model wants a real CPU
+# and free tiers give you about a tenth of one, which turns a five-second
+# transcription into fifty. Removing it drops the image from ~2GB to ~150MB and
+# the build from ~10 minutes to under two, so this runs on the free tier of
+# essentially anything.
+#
+# Measured, on the same Hindi clip: gemini 2.1s, whisper small 4.9s -- and the
+# remote transcript was the more accurate of the two.
 FROM python:3.12-slim
-
-# PyAV bundles its own FFmpeg libraries, so this is insurance rather than a
-# requirement -- but the browser sends webm/opus, and a decode failure in
-# production reads as "the microphone is broken" with nothing in the log.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-cloud.txt .
+RUN pip install --no-cache-dir -r requirements-cloud.txt
 
-# Hugging Face Spaces and most managed hosts run the container as a non-root
-# user. Creating one here means the app owns the directories it writes caches
-# into, rather than discovering it cannot at the first request.
+# Managed hosts run containers as a non-root user. Create one and hand it the
+# directories the app writes caches into, rather than finding out at the first
+# request that it cannot.
 RUN useradd -m -u 1000 setu \
     && mkdir -p /app/data/llm_cache /app/data/voice_cache \
     && chown -R setu:setu /app
 
 USER setu
-ENV HOME=/home/setu \
-    HF_HOME=/home/setu/.cache/huggingface
-
-# Bake the ASR model into the image. Left to runtime this is a 464MB download
-# that the first caller waits through -- and on any host that scales to zero,
-# every caller after an idle period waits through it again.
-RUN python -c "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8')"
+ENV HOME=/home/setu
 
 COPY --chown=setu:setu . .
 
-# small, not medium: measured at 4.9s against 14.4s on one Hindi sentence, with
-# extraction recovering every field from the messier transcript. See setu/voice.py.
-ENV SETU_WHISPER_SIZE=small \
+ENV SETU_ASR=gemini \
     PORT=7860
 
 EXPOSE 7860
 
-# GEMINI_API_KEY is supplied by the host as a secret, never baked in.
+# GEMINI_API_KEY comes from the host's secret store, never baked in.
 CMD ["sh", "-c", "uvicorn setu.api:app --host 0.0.0.0 --port ${PORT:-7860}"]

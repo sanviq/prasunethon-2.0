@@ -1,0 +1,17 @@
+# Render blueprint. Deploying from this file means the settings below are code
+# review rather than a form somebody filled in once and cannot reconstruct.
+services:
+  - type: web
+    name: setu
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # sync: false means Render prompts for it and stores it as a secret. It is
+      # never written into this file, the image, or the repository.
+      - key: GEMINI_API_KEY
+        sync: false
+      # Free hosting gives roughly a tenth of a CPU, which a local Whisper model
+      # cannot work with. See setu/voice.py:_transcribe_remote.
+      - key: SETU_ASR
+        value: gemini

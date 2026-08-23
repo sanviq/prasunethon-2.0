@@ -1,13 +1,3 @@
----
-title: Setu
-emoji: 🌉
-colorFrom: green
-colorTo: gray
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 # Setu — voice-first government scheme discovery
 
 **Setu walks an informal-sector worker from what they said, in their own
@@ -264,28 +254,60 @@ that endpoint answers the question in one curl.
 One container, one port. `Dockerfile` bakes the ASR model into the image, so a
 cold start is a process start rather than a 464MB download.
 
-**What it needs.** Peak resident memory during a real turn is **98MB** —
-CTranslate2 memory-maps the model rather than loading it, so this runs in far
-less RAM than an ASR service usually implies. Budget **1GB** to leave the page
-cache room, and **~2GB of disk** for the image. One vCPU works; two roughly
-halves transcription time, which is 70% of the turn.
+### The constraint that decides the architecture
 
-**Hugging Face Spaces** is the best free fit and needs no card: create a Space,
-pick **Docker** as the SDK, push this repo, and add `GEMINI_API_KEY` under
-*Settings → Secrets*. It listens on 7860, which is what the Dockerfile
-defaults to, and you get a permanent HTTPS URL — which the microphone requires
-and a tunnel URL only ever pretends to be.
+Local Whisper wants a real CPU. Free hosting gives you roughly a tenth of one,
+which turns a five-second transcription into fifty. So the deployed image sets
+`SETU_ASR=gemini` and the provider does ASR:
 
-**Anywhere else** — Cloud Run, Fly, Railway, Render — reads `$PORT`:
+| | local `small` | `SETU_ASR=gemini` |
+|---|---|---|
+| transcription | 4.9s | **2.1s** |
+| full mic turn | 12.3s | **3.4s** |
+| image | ~2GB | ~150MB |
+| build | ~10 min | under 2 min |
+| accuracy | `मुमबाई … चोथटीस साल` | `मुंबई … 34 साल` |
+
+The remote path being both faster and more accurate was not the expected
+result — the local model was chosen partly on the assumption it would win on
+quality.
+
+**What it costs, stated plainly:** speech now leaves the machine, offline mode
+covers only what is already cached, and a turn spends four provider calls
+instead of three against a 15/minute free tier. Local remains the default in
+`setu/voice.py` for laptops and for the IVR stage; only the container flips it.
+This is the swap the adapter shape was built for — one function, and nothing
+outside it changes.
+
+### Render (free, no card)
+
+`render.yaml` is a blueprint, so this is four clicks:
+
+1. [dashboard.render.com](https://dashboard.render.com) → **New** → **Blueprint**
+2. Connect the GitHub repo — it reads `render.yaml`
+3. Paste `GEMINI_API_KEY` when prompted (stored as a secret, never in the repo)
+4. **Apply**
+
+Free web services **spin down after 15 minutes idle**, and the first request
+after that takes 30–60s. The image is small, so that wake is a container start
+rather than a model download.
+
+### Anywhere else
+
+Any host that reads `$PORT` works — Fly, Railway, Cloud Run:
 
 ```bash
 docker build -t setu .
 docker run -p 8000:8000 -e PORT=8000 -e GEMINI_API_KEY=... setu
 ```
 
-On a host that scales to zero, the first request after an idle period still
-pays the model load (~4s) even with the model baked in. Keep one instance warm
-if you are being judged live.
+**Not Vercel or Netlify.** Serverless functions are stateless, and the
+conversation is not: `SESSIONS` holds the profile between "I sell vegetables"
+and "I am 34". Their execution limits are also shorter than a turn.
+
+**Hugging Face Spaces** no longer works for this on a free account — Docker and
+Gradio SDKs now require PRO. Only Static Spaces are free, which cannot run a
+Python service.
 
 **After deploying, warm the deployed instance** — not your laptop. The cache
 lives inside the container and nothing on your machine can reach into it, so

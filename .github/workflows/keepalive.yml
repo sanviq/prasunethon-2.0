@@ -5,36 +5,65 @@
 # will open the link, so the only options are to accept that they might be the
 # one who pays it, or to make sure nobody is.
 #
-# A GitHub-hosted cron on a public repository is free, so this is the cheap
-# option. Two caveats worth knowing rather than discovering:
+# The obvious version of this file was `cron: */10` and one curl. It ran
+# faultlessly, thirty green ticks in a row, and kept nothing alive.
 #
-#   - Scheduled workflows are best-effort. GitHub delays them under load, and
-#     10 minutes can become 20. The keep-alive is therefore a strong reduction
-#     in the odds of a cold start, not a guarantee against one -- which is why
-#     the README still warns the reader that the first call may be slow.
-#   - GitHub disables scheduled workflows on repositories with no activity for
-#     60 days. Long past the point this matters.
+# GitHub treats schedules on free public repositories as best-effort and
+# deprioritises them under load. The observed gaps were 36 to 73 minutes
+# against a requested ten. Render sleeps at fifteen. So the demo was asleep for
+# most of every hour while the dashboard showed an unbroken column of passes --
+# a monitor that reports success for the thing it is failing to do.
+#
+# The fix is to stop depending on the schedule being punctual. Each run now
+# stays up for fifty minutes and pings every five from inside a single job, so
+# one run covers the gap until the next even when that gap is an hour. Runs
+# overlapping is harmless; a gap is not.
+#
+# Job minutes are free on public repositories and the job spends its time
+# asleep, so this costs nothing beyond the runner slot.
+#
+# Still not a guarantee -- if GitHub skips a cycle entirely there is a window.
+# The README's warning about a slow first call stays for that reason. If you
+# want certainty rather than good odds, point an external uptime monitor at
+# /health on a five-minute interval and delete this file.
 name: keepalive
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 permissions:
   contents: read
 
+# One run per branch at a time is plenty, and cancelling the old one when a new
+# one lands stops a queue building up if GitHub delivers several late at once.
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 55
     steps:
-      - name: Wake the demo
+      - name: Keep the demo awake for the next 50 minutes
         run: |
-          # --max-time is generous on purpose: if this ping is the one that
-          # wakes a sleeping container, it has to wait out the cold start,
-          # otherwise it hangs up early and leaves it asleep for the next
-          # person -- which is the exact failure this job exists to prevent.
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 \
-            https://setu-ubco.onrender.com/health)
-          echo "health -> $code"
-          test "$code" = "200"
+          set -u
+          fails=0
+          for i in $(seq 1 11); do
+            # --max-time is generous on purpose: if this ping is the one that
+            # wakes a sleeping container it has to wait out the cold start,
+            # otherwise it hangs up early and leaves it asleep for the next
+            # person, which is the exact failure this job exists to prevent.
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 \
+              https://setu-ubco.onrender.com/health || echo 000)
+            echo "$(date -u +%H:%M:%S)  ping $i/11 -> $code"
+            [ "$code" = "200" ] || fails=$((fails + 1))
+            [ "$i" -lt 11 ] && sleep 300
+          done
+          echo "failed pings: $fails/11"
+          # Tolerate the odd blip -- a redeploy 502s for about a minute -- but
+          # fail the run if the demo was mostly unreachable, because a green
+          # tick that means nothing is worse than no check at all.
+          test "$fails" -lt 4

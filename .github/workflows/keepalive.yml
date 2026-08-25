@@ -36,11 +36,21 @@ on:
 permissions:
   contents: read
 
-# One run per branch at a time is plenty, and cancelling the old one when a new
-# one lands stops a queue building up if GitHub delivers several late at once.
-concurrency:
-  group: keepalive
-  cancel-in-progress: true
+# Deliberately no concurrency group.
+#
+# There was one here (`group: keepalive`, `cancel-in-progress: true`) and it
+# quietly inverted the design above. Each run pings for fifty minutes while the
+# schedule asks every fifteen, so a fresh run kept killing the one still doing
+# its job -- cancellation was the normal outcome and completion the exception.
+# The Actions tab filled with grey (!) icons that read as crashes at a glance.
+#
+# The overlap is the point. Runs stacking up is how this survives GitHub
+# delivering a schedule an hour late; cancelling the in-flight one throws away
+# the exact insurance the fifty-minute loop exists to provide.
+#
+# Note that `cancel-in-progress: false` is not the fix either -- GitHub would
+# then queue the new run and cancel the older *pending* one instead, so the
+# dashboard stays red and the running job is unaffected either way.
 
 jobs:
   ping:
